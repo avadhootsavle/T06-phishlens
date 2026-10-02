@@ -43,12 +43,13 @@ export async function scanQr(
 export async function submitReport(
   scanId: string | undefined,
   category: string,
-  note?: string
+  note?: string,
+  url?: string
 ): Promise<{ reportId: string; status: string; message: string }> {
   const response = await fetch(`${API_BASE}/reports`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scanId, category, note }),
+    body: JSON.stringify({ scanId, category, note, url }),
   });
 
   if (!response.ok) {

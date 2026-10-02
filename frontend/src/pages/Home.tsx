@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { QrCode, Link2, ArrowRight, ShieldCheck, CreditCard, Layers } from 'lucide-react';
+import { QrCode, Link2, ArrowRight, ShieldCheck, CreditCard, Layers, Flag } from 'lucide-react';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -191,6 +191,26 @@ export const Home: React.FC = () => {
             </div>
           </button>
         </div>
+      </div>
+
+      {/* Community Reporting Callout */}
+      <div className="mb-10 p-5 rounded-xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-center justify-center shrink-0">
+            <Flag className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-slate-900">Spotted a Phishing Link or Fraudulent QR?</div>
+            <div className="text-xs text-slate-500">Report suspicious websites directly into our community triage queue to protect others.</div>
+          </div>
+        </div>
+        <Link
+          to="/report"
+          className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors shrink-0 shadow-sm"
+        >
+          <span>Report Website</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
       </div>
 
       {/* Trust & Guarantee Panel */}

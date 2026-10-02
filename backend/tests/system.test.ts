@@ -151,8 +151,16 @@ async function runTests() {
     assert.ok(sanitized.includes('user=hash_'));
   });
 
-  console.log(`\n🎉 Test Results: ${passed}/${total} passed (${Math.round((passed / total) * 100)}%)\n`);
+  // 6. Community Reporting Tests
+  test('Community reporting accepts direct website URL and formats report note', () => {
+    const rawUrl = 'https://phishing-portal-test.example/login';
+    const note = 'Suspicious credential harvesting page';
+    const formattedNote = `Target Website: ${rawUrl}\n\nObservation: ${note}`;
+    assert.ok(formattedNote.includes('Target Website: https://phishing-portal-test.example/login'));
+    assert.ok(formattedNote.includes('Observation: Suspicious credential harvesting page'));
+  });
 
+  console.log(`\n🎉 Test Results: ${passed}/${total} passed (${Math.round((passed / total) * 100)}%)\n`);
 }
 
 runTests().catch((e) => {

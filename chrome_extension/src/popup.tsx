@@ -12,6 +12,7 @@ import {
   Check,
   RefreshCw,
   Upload,
+  Flag,
 } from 'lucide-react';
 import { BrowserQRCodeReader } from '@zxing/browser';
 
@@ -584,6 +585,36 @@ export const Popup: React.FC = () => {
                       boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
                     }}
                   />
+                </button>
+              </div>
+
+              {/* Report Website Action */}
+              <div style={{ marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const reportUrl = `http://localhost:3000/report?url=${encodeURIComponent(data.url || '')}&scanId=${data.scanId || ''}`;
+                    chrome.tabs.create({ url: reportUrl });
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '7px 10px',
+                    borderRadius: '6px',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    color: '#475569',
+                    fontSize: '11px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <Flag size={12} color="#dc2626" />
+                  <span>Report this website for triage</span>
                 </button>
               </div>
             </div>

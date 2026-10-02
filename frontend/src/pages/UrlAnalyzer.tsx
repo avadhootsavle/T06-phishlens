@@ -189,6 +189,30 @@ export const UrlAnalyzer: React.FC = () => {
           <button
             type="button"
             onClick={() => {
+              setUrl('https://amazun.com');
+              handleScan('https://amazun.com');
+            }}
+            className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 text-left text-slate-300 flex items-center justify-between group"
+          >
+            <span>amazun.com (Amazon Typosquat)</span>
+            <Sparkles className="w-3.5 h-3.5 text-rose-400 group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setUrl('https://paypa1.com');
+              handleScan('https://paypa1.com');
+            }}
+            className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 text-left text-slate-300 flex items-center justify-between group"
+          >
+            <span>paypa1.com (Unseeded Brand '1' $\to$ 'l')</span>
+            <Sparkles className="w-3.5 h-3.5 text-rose-400 group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
               setUrl('https://onlinesbi.sbi');
               handleScan('https://onlinesbi.sbi');
             }}

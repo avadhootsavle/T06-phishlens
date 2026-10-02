@@ -152,17 +152,17 @@ export const QRScanner: React.FC = () => {
       {/* Title & Purpose */}
       <div className="text-center mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
-          QR Code & Payment Scanner
+          Scan a QR Code
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
-          Decodes UPI payment directions, payee names, and web links before you execute them on your device.
+          Checks UPI payment details, recipient names, and web destinations before you pay or visit.
         </p>
       </div>
 
       {/* User Intent Configuration Card */}
       <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm mb-6">
         <label className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700 block mb-2">
-          What are you trying to do?
+          What are you expecting?
         </label>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
@@ -212,13 +212,13 @@ export const QRScanner: React.FC = () => {
           </button>
         </div>
 
-        {/* Expected Merchant Name Input ("Pay at: <shop name>") */}
+        {/* Expected Merchant Name Input */}
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="text-xs font-semibold text-slate-900 block">
-              Pay at: &lt;shop name&gt; <span className="font-normal text-slate-500">(optional)</span>
+              Expected shop name <span className="font-normal text-slate-500">(optional)</span>
             </label>
-            <span className="text-[10px] font-mono text-slate-500">Detects recipient mismatch</span>
+            <span className="text-[10px] font-mono text-slate-500">Checks against payee</span>
           </div>
           <input
             type="text"
@@ -228,7 +228,7 @@ export const QRScanner: React.FC = () => {
             className="w-full px-3.5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-slate-400 focus:bg-white transition-colors"
           />
           <p className="text-[11px] text-slate-500 mt-1">
-            If provided, PhishLens will check whether the QR recipient matches what you expect before paying.
+            If provided, PhishLens warns you if the actual UPI payee name is different from the shop.
           </p>
         </div>
       </div>

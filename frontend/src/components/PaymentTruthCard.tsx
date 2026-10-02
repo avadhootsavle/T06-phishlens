@@ -87,27 +87,27 @@ export const PaymentTruthCard: React.FC<PaymentTruthCardProps> = ({ paymentTruth
 
             {mv.status === 'VERIFIED' && (
               <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                Ed25519 Signed ✓
+                Cryptographically Verified
               </span>
             )}
             {mv.status === 'VERIFIED_REGISTRY' && (
               <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Registry Verified ✓
+                Registry Match
               </span>
             )}
             {mv.status === 'TAMPERED' && (
               <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-red-100 text-red-800 border border-red-300">
-                Signature Fake / Forged ⚠️
+                Counterfeit Signature
               </span>
             )}
             {mv.status === 'REVOKED' && (
               <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-red-50 text-red-700 border border-red-200">
-                Revoked Merchant ⚠️
+                Revoked Merchant
               </span>
             )}
             {mv.status === 'EXPIRED' && (
               <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                Sticker Expired
+                Expired Sticker
               </span>
             )}
             {mv.status === 'MISMATCH' && (
@@ -117,7 +117,7 @@ export const PaymentTruthCard: React.FC<PaymentTruthCardProps> = ({ paymentTruth
             )}
             {mv.status === 'UNVERIFIED' && (
               <span className="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                Not Registered
+                Unregistered
               </span>
             )}
           </div>
@@ -125,14 +125,14 @@ export const PaymentTruthCard: React.FC<PaymentTruthCardProps> = ({ paymentTruth
           {/* Tamper Warning Alert Callout */}
           {isTampered && (
             <div className="p-3 mb-3 rounded-md bg-red-50 border border-red-200 text-xs text-red-900 leading-relaxed font-semibold">
-              ⚠️ {mv.message}
+              {mv.message}
             </div>
           )}
 
           {/* Revoked Callout */}
           {isRevoked && (
             <div className="p-3 mb-3 rounded-md bg-red-50 border border-red-200 text-xs text-red-900 leading-relaxed">
-              ⚠️ {mv.message}
+              {mv.message}
             </div>
           )}
 

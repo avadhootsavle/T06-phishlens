@@ -71,10 +71,10 @@ export const UrlAnalyzer: React.FC = () => {
       {/* Title */}
       <div className="text-center mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
-          Web Address & Link Inspector
+          Inspect a Link
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
-          Unpacks redirect chains, newly registered domains, typosquatting, and brand impersonation traps.
+          Trace redirects, check domain age, and detect lookalike websites.
         </p>
       </div>
 
@@ -90,14 +90,14 @@ export const UrlAnalyzer: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700">
-                Web Address to Analyze
+                URL or domain
               </label>
               <button
                 type="button"
                 onClick={handleQuickPaste}
                 className="text-xs text-slate-600 hover:text-slate-900 font-medium"
               >
-                Paste from Clipboard
+                Paste
               </button>
             </div>
 
@@ -125,7 +125,7 @@ export const UrlAnalyzer: React.FC = () => {
                 onClick={() => setUrl('https://раytm-wallet.com')}
                 className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] font-mono text-slate-700 transition-colors"
               >
-                Cyrillic Homoglyph
+                Cyrillic Lookalike
               </button>
               <button
                 type="button"
@@ -149,7 +149,7 @@ export const UrlAnalyzer: React.FC = () => {
             <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
               <div className="flex items-center space-x-2 text-xs font-semibold text-slate-900">
                 <RefreshCw className="w-4 h-4 text-slate-700 animate-spin" />
-                <span>Running automated inspection pipeline...</span>
+                <span>Inspecting link...</span>
               </div>
 
               <div className="space-y-2">

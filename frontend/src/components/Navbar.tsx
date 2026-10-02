@@ -17,18 +17,11 @@ export const Navbar: React.FC = () => {
     <nav className="sticky top-0 z-50 bg-white/95 border-b border-slate-200 backdrop-blur-sm">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-14">
-          <Link to="/" className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-sm">
-              <Shield className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="font-bold text-base tracking-tight text-slate-900 leading-tight">
-                PhishLens
-              </div>
-              <div className="text-[10px] text-slate-500 font-mono tracking-wider uppercase">
-                Intent Verification
-              </div>
-            </div>
+          <Link to="/" className="flex items-center space-x-2.5 group">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
+            <span className="font-mono text-xs font-semibold text-slate-900 tracking-tight group-hover:text-slate-700 transition-colors">
+              verify<span className="text-slate-400 font-normal">.local</span>
+            </span>
           </Link>
 
           {/* Desktop Nav */}
@@ -62,20 +55,38 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile Quick Action Buttons */}
-          <div className="flex md:hidden items-center space-x-1">
+          <div className="flex md:hidden items-center space-x-0.5">
             <Link
               to="/scan-qr"
-              className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
               aria-label="Scan QR"
+              title="Scan QR"
             >
               <QrCode className="w-4 h-4" />
             </Link>
             <Link
               to="/check-url"
-              className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
               aria-label="Check URL"
+              title="Check URL"
             >
               <Link2 className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/admin"
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+              aria-label="Triage"
+              title="Triage"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/about"
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+              aria-label="About"
+              title="About"
+            >
+              <Info className="w-4 h-4" />
             </Link>
           </div>
         </div>

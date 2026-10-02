@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import {
-  Shield,
   QrCode,
   Globe,
   Camera,
@@ -120,120 +119,128 @@ async function detectQrFromScreenshot(dataUrl: string): Promise<string | null> {
   });
 }
 
-const Popup: React.FC = () => {
+export const Popup: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'webpage' | 'scanner'>('webpage');
   const [data, setData] = useState<TabScanState | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [autoBlockDangerous, setAutoBlockDangerous] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
+  const [currentHostname, setCurrentHostname] = useState<string>('');
 
-  // Screen QR Capture States
-  const [isCapturing, setIsCapturing] = useState<boolean>(false);
+  // Screen QR Scan States
+  const [isCapturing, setIsCapturing] = useState(false);
   const [qrResult, setQrResult] = useState<QrScanResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<boolean>(false);
-  const [showWebpageSection, setShowWebpageSection] = useState<boolean>(true);
+  const [copied, setCopied] = useState(false);
+  const [autoBlockDangerous, setAutoBlockDangerous] = useState(true);
 
   useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    // 1. Load active tab and scan state
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const activeTab = tabs[0];
       if (activeTab?.id && activeTab.url) {
-        const stored = await chrome.storage.local.get([`tab_${activeTab.id}`, 'autoBlockDangerous']);
-        if (stored[`tab_${activeTab.id}`]) {
-          setData(stored[`tab_${activeTab.id}`]);
+        try {
+          const parsed = new URL(activeTab.url);
+          setCurrentHostname(parsed.hostname);
+        } catch {
+          setCurrentHostname(activeTab.url);
         }
-        if (stored.autoBlockDangerous !== undefined) {
-          setAutoBlockDangerous(stored.autoBlockDangerous);
-        }
+
+        chrome.storage.local.get([`scan_${activeTab.id}`, 'autoBlockDangerous'], (result) => {
+          if (result[`scan_${activeTab.id}`]) {
+            setData(result[`scan_${activeTab.id}`]);
+          }
+          if (result.autoBlockDangerous !== undefined) {
+            setAutoBlockDangerous(result.autoBlockDangerous);
+          }
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
+
+    // 2. Listen for real-time updates from background / content scripts
+    const messageListener = (message: any) => {
+      if (message.type === 'SCAN_RESULT' && message.data) {
+        setData(message.data);
+        setLoading(false);
+      }
+    };
+    chrome.runtime.onMessage.addListener(messageListener);
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(messageListener);
+    };
   }, []);
 
-  const toggleAutoBlock = async () => {
+  const toggleAutoBlock = () => {
     const newVal = !autoBlockDangerous;
     setAutoBlockDangerous(newVal);
-    await chrome.storage.local.set({ autoBlockDangerous: newVal });
+    chrome.storage.local.set({ autoBlockDangerous: newVal });
   };
 
   const openPwa = () => {
     chrome.tabs.create({ url: 'http://localhost:3000' });
   };
 
-  // Perform Screen Capture & QR Analysis
+  // Primary Feature: Capture active screen and detect QR
   const handleCaptureScreenQr = async () => {
     setIsCapturing(true);
     setQrError(null);
     setQrResult(null);
 
-    chrome.tabs.captureVisibleTab(null as unknown as number, { format: 'png' }, async (dataUrl) => {
-      if (chrome.runtime.lastError || !dataUrl) {
-        setQrError('Failed to capture active tab screenshot. Make sure Chrome permissions are enabled.');
-        setIsCapturing(false);
-        return;
-      }
-
-      try {
-        const detectedPayload = await detectQrFromScreenshot(dataUrl);
-
-        if (!detectedPayload) {
-          setQrError('No QR code detected on this webpage. Ensure the QR code is clearly visible in the browser viewport and try again.');
+    try {
+      chrome.tabs.captureVisibleTab({ format: 'png' }, async (dataUrl) => {
+        if (!dataUrl || chrome.runtime.lastError) {
+          setQrError(chrome.runtime.lastError?.message || 'Unable to capture tab.');
           setIsCapturing(false);
           return;
         }
 
-        // Send detected payload to backend /api/v1/scans/qr
-        const response = await fetch('http://localhost:5001/api/v1/scans/qr', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            qrContent: detectedPayload,
-            expectedIntent: 'NOT_SURE',
-          }),
-        });
+        try {
+          const qrText = await detectQrFromScreenshot(dataUrl);
+          if (!qrText) {
+            setQrError('No QR code detected on this screen. Make sure the QR code is visible.');
+            setIsCapturing(false);
+            return;
+          }
 
-        if (!response.ok) {
-          throw new Error(`Scanner error: HTTP ${response.status}`);
+          await handleAnalyzePayload(qrText);
+        } catch {
+          setQrError('Failed while parsing the on-screen QR image.');
+          setIsCapturing(false);
         }
-
-        const scanData: QrScanResult = await response.json();
-        setQrResult({
-          ...scanData,
-          rawContent: detectedPayload,
-        });
-      } catch (err: unknown) {
-        setQrError((err as Error).message || 'Failed to inspect QR code.');
-      } finally {
-        setIsCapturing(false);
-      }
-    });
+      });
+    } catch {
+      setQrError('Could not access screen capture.');
+      setIsCapturing(false);
+    }
   };
 
-  // Analyze a test or uploaded QR payload directly
-  const handleAnalyzePayload = async (payload: string, expectedIntent: 'PAY_MERCHANT' | 'RECEIVE_MONEY' | 'NOT_SURE' = 'NOT_SURE') => {
+  const handleAnalyzePayload = async (payloadString: string, expectedIntent?: string) => {
     setIsCapturing(true);
     setQrError(null);
-    setQrResult(null);
 
     try {
       const response = await fetch('http://localhost:5001/api/v1/scans/qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          qrContent: payload,
-          expectedIntent,
+          qrContent: payloadString,
+          expectedIntent: expectedIntent || 'PAY_MERCHANT',
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Scanner error: HTTP ${response.status}`);
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Backend evaluation failed.');
       }
 
-      const scanData: QrScanResult = await response.json();
-      setQrResult({
-        ...scanData,
-        rawContent: payload,
-      });
-    } catch (err: unknown) {
-      setQrError((err as Error).message || 'Analysis failed');
+      const scanRes: QrScanResult = await response.json();
+      scanRes.rawContent = payloadString;
+      setQrResult(scanRes);
+      setActiveTab('scanner'); // auto-switch to scanner tab to show result
+    } catch (err: any) {
+      setQrError(err.message || 'Verification failed.');
     } finally {
       setIsCapturing(false);
     }
@@ -245,8 +252,10 @@ const Popup: React.FC = () => {
 
     setIsCapturing(true);
     setQrError(null);
-    const codeReader = new BrowserQRCodeReader();
+    setQrResult(null);
+
     const imgUrl = URL.createObjectURL(file);
+    const codeReader = new BrowserQRCodeReader();
 
     try {
       const result = await codeReader.decodeFromImageUrl(imgUrl);
@@ -255,7 +264,7 @@ const Popup: React.FC = () => {
         await handleAnalyzePayload(result.getText());
       }
     } catch {
-      setQrError('No readable QR code found in the uploaded image.');
+      setQrError('No readable QR code found in this image.');
       setIsCapturing(false);
     }
   };
@@ -269,556 +278,634 @@ const Popup: React.FC = () => {
   const pageVerdict = data?.verdict || 'SAFE';
 
   return (
-    <div style={{ padding: '14px', boxSizing: 'border-box', background: '#f8f9fa', minHeight: '430px' }}>
-      {/* Top Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Shield size={16} color="#fff" />
-          </div>
-          <div>
-            <div style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a' }}>PhishLens</div>
-            <div style={{ fontSize: '9px', color: '#64748b', fontFamily: 'monospace', textTransform: 'uppercase' }}>Security Layer</div>
-          </div>
-        </div>
-
-        <button
-          onClick={openPwa}
-          title="Open Web Dashboard"
-          style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
-        >
-          <ExternalLink size={14} />
-        </button>
-      </div>
-
-      {/* ============================================================== */}
-      {/* 1. PRIMARY FEATURE: CAPTURE SCREEN QR BUTTON & ACTION CARD    */}
-      {/* ============================================================== */}
+    <div style={{ padding: '14px', boxSizing: 'border-box', background: '#f8f9fa', minHeight: '440px', color: '#0f172a' }}>
+      {/* Clean Header: Active Domain & Status Indicator (No logo, No app name) */}
       <div
         style={{
-          background: '#ffffff',
-          borderRadius: '10px',
-          padding: '12px',
-          border: '1px solid #cbd5e1',
-          boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
-          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingBottom: '10px',
+          borderBottom: '1px solid #e2e8f0',
+          marginBottom: '10px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <QrCode size={15} color="#0f172a" />
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>
-              On-Screen QR & UPI Scanner
-            </span>
-          </div>
-          <span style={{ fontSize: '9px', color: '#64748b', fontFamily: 'monospace', fontWeight: '600' }}>
-            SCREEN DETECT
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              flexShrink: 0,
+              background:
+                pageVerdict === 'DANGER' ? '#dc2626' : pageVerdict === 'CAUTION' ? '#d97706' : '#16a34a',
+            }}
+          />
+          <span
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#0f172a',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '250px',
+            }}
+            title={currentHostname}
+          >
+            {currentHostname || 'Inspection Console'}
           </span>
         </div>
 
         <button
-          onClick={handleCaptureScreenQr}
-          disabled={isCapturing}
+          onClick={openPwa}
+          title="Open Full Dashboard"
           style={{
-            width: '100%',
-            padding: '10px 14px',
-            borderRadius: '8px',
-            background: '#0f172a',
-            color: '#ffffff',
+            background: 'transparent',
             border: 'none',
-            fontSize: '12px',
-            fontWeight: '700',
-            cursor: isCapturing ? 'not-allowed' : 'pointer',
-            opacity: isCapturing ? 0.7 : 1,
+            color: '#64748b',
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            borderRadius: '4px',
+          }}
+        >
+          <ExternalLink size={13} />
+        </button>
+      </div>
+
+      {/* Segmented Control: [ Webpage ] [ Scan QR ] */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          background: '#e2e8f0',
+          padding: '2px',
+          borderRadius: '7px',
+          marginBottom: '12px',
+        }}
+      >
+        <button
+          onClick={() => setActiveTab('webpage')}
+          style={{
+            padding: '5px 0',
+            border: 'none',
+            borderRadius: '5px',
+            background: activeTab === 'webpage' ? '#ffffff' : 'transparent',
+            color: activeTab === 'webpage' ? '#0f172a' : '#64748b',
+            fontSize: '11px',
+            fontWeight: activeTab === 'webpage' ? '600' : '500',
+            cursor: 'pointer',
+            boxShadow: activeTab === 'webpage' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '8px',
-            transition: 'background 0.15s ease',
+            gap: '5px',
+            transition: 'all 0.15s ease',
           }}
         >
-          {isCapturing ? (
-            <>
-              <RefreshCw size={14} className="animate-spin" />
-              <span>Scanning Webpage for QR Code...</span>
-            </>
-          ) : (
-            <>
-              <Camera size={15} />
-              <span>Capture & Scan QR on Current Page</span>
-            </>
-          )}
+          <Globe size={12} />
+          <span>Webpage Security</span>
         </button>
 
-        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '6px', textAlign: 'center', lineHeight: '1.3' }}>
-          Takes a snapshot of the visible tab to inspect UPI payments or hidden QR links.
-        </div>
+        <button
+          onClick={() => setActiveTab('scanner')}
+          style={{
+            padding: '5px 0',
+            border: 'none',
+            borderRadius: '5px',
+            background: activeTab === 'scanner' ? '#ffffff' : 'transparent',
+            color: activeTab === 'scanner' ? '#0f172a' : '#64748b',
+            fontSize: '11px',
+            fontWeight: activeTab === 'scanner' ? '600' : '500',
+            cursor: 'pointer',
+            boxShadow: activeTab === 'scanner' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '5px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <QrCode size={12} />
+          <span>Screen QR</span>
+        </button>
       </div>
 
-      {/* Captured Screen QR Result Display */}
-      {qrResult && (
-        <div style={{ marginBottom: '14px' }}>
-          {/* Decision Action Banner ("Click or Not / Pay or Not") */}
-          <div
-            style={{
-              background: qrResult.verdict === 'DANGER' ? '#fef2f2' : qrResult.verdict === 'CAUTION' ? '#fffbeb' : '#f0fdf4',
-              border: `1px solid ${qrResult.verdict === 'DANGER' ? '#fecaca' : qrResult.verdict === 'CAUTION' ? '#fde68a' : '#bbf7d0'}`,
-              borderRadius: '10px',
-              padding: '12px',
-              marginBottom: '10px',
-            }}
-          >
-            {/* Decision Headline */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {qrResult.verdict === 'DANGER' ? (
-                  <AlertOctagon size={16} color="#b91c1c" />
-                ) : qrResult.verdict === 'CAUTION' ? (
-                  <AlertTriangle size={16} color="#b45309" />
-                ) : (
-                  <CheckCircle2 size={16} color="#15803d" />
-                )}
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: '800',
-                    color: qrResult.verdict === 'DANGER' ? '#b91c1c' : qrResult.verdict === 'CAUTION' ? '#b45309' : '#15803d',
-                    letterSpacing: '-0.2px',
-                  }}
-                >
-                  {qrResult.verdict === 'DANGER'
-                    ? qrResult.paymentTruth?.isUPI ? 'DO NOT PAY / FRAUD DETECTED' : 'DO NOT CLICK / MALICIOUS LINK'
-                    : qrResult.verdict === 'CAUTION'
-                    ? qrResult.paymentTruth?.isUPI ? 'EXERCISE CAUTION / CONFIRM RECIPIENT' : 'PROCEED WITH CAUTION'
-                    : qrResult.paymentTruth?.isUPI ? 'SAFE TO PAY / VERIFIED UPI' : 'SAFE TO CLICK / PROCEED'}
-                </span>
-              </div>
-
-              <span style={{ fontSize: '15px', fontWeight: '800', fontFamily: 'monospace', color: '#0f172a' }}>
-                {qrResult.riskScore} <span style={{ fontSize: '10px', color: '#64748b' }}>/100</span>
-              </span>
+      {/* TAB 1: WEBPAGE SECURITY */}
+      {activeTab === 'webpage' && (
+        <div>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '30px 0', color: '#64748b', fontSize: '12px' }}>
+              <RefreshCw size={16} className="animate-spin" style={{ margin: '0 auto 8px auto', display: 'block' }} />
+              Inspecting destination...
             </div>
-
-            {/* Explanation */}
-            <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f172a', lineHeight: '1.4', marginBottom: '8px' }}>
-              {qrResult.explanation}
-            </div>
-
-            {/* Decoded Content */}
-            {qrResult.rawContent && (
-              <div
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  padding: '6px 8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '10px',
-                    fontFamily: 'monospace',
-                    color: '#475569',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {qrResult.rawContent}
-                </span>
-                <button
-                  onClick={() => handleCopyContent(qrResult.rawContent!)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#64748b' }}
-                  title="Copy QR Payload"
-                >
-                  {copied ? <Check size={12} color="#15803d" /> : <Copy size={12} />}
-                </button>
+          ) : !data ? (
+            <div
+              style={{
+                background: '#ffffff',
+                borderRadius: '8px',
+                padding: '16px',
+                border: '1px solid #e2e8f0',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f172a', marginBottom: '4px' }}>
+                Ready to inspect
               </div>
-            )}
-          </div>
-
-          {/* PaymentTruth Semantics */}
-          {qrResult.paymentTruth?.isUPI && (
-            <div style={{ background: '#ffffff', borderRadius: '8px', padding: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', fontSize: '11px' }}>
-              <div style={{ color: '#0f172a', fontWeight: '700', fontFamily: 'monospace', fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}>
-                PaymentTruth™ Semantics
+              <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px', lineHeight: '1.4' }}>
+                Navigate to any website to evaluate domain registration, brand claims, and credential safety.
               </div>
-              <div style={{ color: '#475569', marginBottom: '2px' }}>
-                Payee: <strong style={{ color: '#0f172a' }}>{qrResult.paymentTruth.payeeName || 'Unknown'}</strong>
-              </div>
-              <div style={{ color: '#475569', marginBottom: '2px' }}>
-                UPI ID: <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>{qrResult.paymentTruth.upiId}</strong>
-              </div>
-              {qrResult.paymentTruth.amount && (
-                <div style={{ color: '#475569', marginBottom: '2px' }}>
-                  Amount: <strong style={{ color: '#0f172a' }}>₹{qrResult.paymentTruth.amount}</strong>
-                </div>
-              )}
-              <div style={{ color: qrResult.paymentTruth.intentMismatch ? '#b91c1c' : '#475569', fontWeight: '600', marginTop: '4px' }}>
-                {qrResult.paymentTruth.actionDescription}
-              </div>
-            </div>
-          )}
-
-          {/* Observed Signals */}
-          {qrResult.why && qrResult.why.length > 0 && (
-            <div style={{ background: '#ffffff', borderRadius: '8px', padding: '10px', border: '1px solid #e2e8f0', marginBottom: '10px' }}>
-              <div style={{ fontSize: '10px', fontWeight: '700', fontFamily: 'monospace', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Observed Evidence:
-              </div>
-              {qrResult.why.map((reason, idx) => (
-                <div key={idx} style={{ fontSize: '11px', color: '#475569', marginBottom: '2px', lineHeight: '1.3' }}>
-                  • {reason}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {qrResult.rawContent && /^https?:\/\//i.test(qrResult.rawContent) && (
               <button
-                onClick={() => {
-                  if (qrResult.verdict === 'DANGER') {
-                    if (confirm('Warning: Flagged as DANGEROUS phishing. Open anyway?')) {
-                      chrome.tabs.create({ url: qrResult.rawContent });
-                    }
-                  } else {
-                    chrome.tabs.create({ url: qrResult.rawContent });
-                  }
-                }}
+                onClick={() => window.location.reload()}
                 style={{
-                  flex: 1,
-                  padding: '7px 10px',
+                  padding: '6px 12px',
+                  background: '#0f172a',
+                  border: 'none',
                   borderRadius: '6px',
-                  background: qrResult.verdict === 'DANGER' ? '#fee2e2' : '#0f172a',
-                  color: qrResult.verdict === 'DANGER' ? '#b91c1c' : '#ffffff',
-                  border: qrResult.verdict === 'DANGER' ? '1px solid #fca5a5' : 'none',
+                  color: '#fff',
                   fontSize: '11px',
                   fontWeight: '600',
                   cursor: 'pointer',
                 }}
               >
-                {qrResult.verdict === 'DANGER' ? 'Open Anyway' : 'Open Link'}
-              </button>
-            )}
-
-            <button
-              onClick={handleCaptureScreenQr}
-              style={{
-                flex: 1,
-                padding: '7px 10px',
-                borderRadius: '6px',
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                color: '#0f172a',
-                fontSize: '11px',
-                fontWeight: '600',
-                cursor: 'pointer',
-              }}
-            >
-              Scan Again
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Screen QR Error Banner */}
-      {qrError && (
-        <div
-          style={{
-            background: '#fffbeb',
-            border: '1px solid #fde68a',
-            borderRadius: '8px',
-            padding: '10px 12px',
-            marginBottom: '12px',
-            fontSize: '11px',
-            color: '#92400e',
-            lineHeight: '1.4',
-          }}
-        >
-          <div style={{ fontWeight: '700', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <AlertTriangle size={13} color="#b45309" />
-            <span>Detection Status</span>
-          </div>
-          {qrError}
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* 2. WEBPAGE SAFETY SECTION (URL VERDICT & AUTO-BLOCK)           */}
-      {/* ============================================================== */}
-      <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px' }}>
-        <div
-          onClick={() => setShowWebpageSection(!showWebpageSection)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '8px',
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Globe size={13} color="#64748b" />
-            <span style={{ fontSize: '11px', fontWeight: '700', color: '#0f172a', textTransform: 'uppercase', fontFamily: 'monospace' }}>
-              Current Webpage Status
-            </span>
-          </div>
-          <span style={{ fontSize: '10px', color: '#64748b' }}>
-            {showWebpageSection ? 'Hide ▲' : 'Show ▼'}
-          </span>
-        </div>
-
-        {showWebpageSection && (
-          <div>
-            {/* Auto-Block Toggle Card */}
-            <div
-              style={{
-                background: '#ffffff',
-                borderRadius: '8px',
-                padding: '8px 10px',
-                border: '1px solid #e2e8f0',
-                marginBottom: '10px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a' }}>
-                  Auto-Block Dangerous Sites (&gt;70)
-                </div>
-                <div style={{ fontSize: '9px', color: '#64748b' }}>
-                  {autoBlockDangerous ? 'Active threat defense ON' : 'Warning banner only'}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={toggleAutoBlock}
-                style={{
-                  width: '32px',
-                  height: '18px',
-                  borderRadius: '9px',
-                  background: autoBlockDangerous ? '#0f172a' : '#cbd5e1',
-                  position: 'relative',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                  padding: '0',
-                }}
-              >
-                <div
-                  style={{
-                    width: '14px',
-                    height: '14px',
-                    borderRadius: '50%',
-                    background: '#fff',
-                    position: 'absolute',
-                    top: '2px',
-                    left: autoBlockDangerous ? '16px' : '2px',
-                    transition: 'left 0.2s',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                  }}
-                />
+                Refresh Tab
               </button>
             </div>
-
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '16px 0', color: '#64748b', fontSize: '12px' }}>
-                Scanning active webpage...
-              </div>
-            ) : !data ? (
-              <div style={{ background: '#ffffff', borderRadius: '10px', padding: '14px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                <div style={{ fontSize: '12px', fontWeight: '600', color: '#0f172a', marginBottom: '2px' }}>Ready to Inspect</div>
-                <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px' }}>Navigate to any site to view live security verdicts.</div>
-                <button
-                  onClick={() => window.location.reload()}
-                  style={{ padding: '5px 10px', background: '#0f172a', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}
-                >
-                  Refresh Verdict
-                </button>
-              </div>
-            ) : (
-              <div>
-                {/* Active Page Verdict Card */}
-                <div
-                  style={{
-                    background: pageVerdict === 'DANGER' ? '#fef2f2' : pageVerdict === 'CAUTION' ? '#fffbeb' : '#f0fdf4',
-                    border: `1px solid ${pageVerdict === 'DANGER' ? '#fecaca' : pageVerdict === 'CAUTION' ? '#fde68a' : '#bbf7d0'}`,
-                    borderRadius: '10px',
-                    padding: '12px',
-                    marginBottom: '8px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+          ) : (
+            <div>
+              {/* Verdict Summary Card */}
+              <div
+                style={{
+                  background:
+                    pageVerdict === 'DANGER' ? '#fef2f2' : pageVerdict === 'CAUTION' ? '#fffbeb' : '#f0fdf4',
+                  border: `1px solid ${
+                    pageVerdict === 'DANGER' ? '#fecaca' : pageVerdict === 'CAUTION' ? '#fde68a' : '#bbf7d0'
+                  }`,
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {pageVerdict === 'DANGER' ? (
+                      <AlertOctagon size={15} color="#b91c1c" />
+                    ) : pageVerdict === 'CAUTION' ? (
+                      <AlertTriangle size={15} color="#b45309" />
+                    ) : (
+                      <CheckCircle2 size={15} color="#15803d" />
+                    )}
                     <span
                       style={{
                         fontSize: '11px',
                         fontWeight: '700',
-                        fontFamily: 'monospace',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        background: '#ffffff',
-                        color: pageVerdict === 'DANGER' ? '#b91c1c' : pageVerdict === 'CAUTION' ? '#b45309' : '#15803d',
-                        border: '1px solid currentColor',
+                        color:
+                          pageVerdict === 'DANGER' ? '#b91c1c' : pageVerdict === 'CAUTION' ? '#b45309' : '#15803d',
                       }}
                     >
-                      {data.verdict}
-                    </span>
-                    <span style={{ fontSize: '16px', fontWeight: '700', fontFamily: 'monospace', color: '#0f172a' }}>
-                      {data.riskScore} <span style={{ fontSize: '10px', color: '#64748b' }}>/100</span>
+                      {pageVerdict === 'DANGER'
+                        ? 'Dangerous Website'
+                        : pageVerdict === 'CAUTION'
+                        ? 'Exercise Caution'
+                        : 'No Phishing Detected'}
                     </span>
                   </div>
 
-                  {/* Recommendation Decision Banner */}
+                  <span style={{ fontSize: '13px', fontWeight: '700', fontFamily: 'monospace', color: '#0f172a' }}>
+                    {data.riskScore} <span style={{ fontSize: '10px', color: '#64748b' }}>/ 100</span>
+                  </span>
+                </div>
+
+                <div style={{ fontSize: '11px', fontWeight: '500', color: '#0f172a', lineHeight: '1.4' }}>
+                  {data.explanation}
+                </div>
+              </div>
+
+              {/* Identity & Signal Breakdown (Clean key-value rows) */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  padding: '10px 12px',
+                  marginBottom: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: '11px' }}>
+                  <span style={{ color: '#64748b' }}>Claimed brand</span>
+                  <span style={{ fontWeight: '600', color: '#0f172a' }}>
+                    {data.intentGuard?.claimedBrand || 'None claimed'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f1f5f9', fontSize: '11px' }}>
+                  <span style={{ color: '#64748b' }}>Official domain</span>
+                  <span style={{ fontWeight: '600', color: data.intentGuard?.isOfficialDomain ? '#16a34a' : '#64748b' }}>
+                    {data.intentGuard?.isOfficialDomain ? 'Verified' : 'Unregistered'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '11px' }}>
+                  <span style={{ color: '#64748b' }}>Form fields</span>
+                  <span style={{ fontWeight: '600', color: data.intentGuard?.hasCredentialTrap ? '#dc2626' : '#16a34a' }}>
+                    {data.intentGuard?.hasCredentialTrap ? 'Credential trap detected' : 'Clean'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Observed Signals List */}
+              {data.why && data.why.length > 0 && (
+                <div
+                  style={{
+                    background: '#ffffff',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    padding: '8px 12px',
+                    marginBottom: '10px',
+                  }}
+                >
+                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#64748b', marginBottom: '4px' }}>
+                    Signals:
+                  </div>
+                  {data.why.slice(0, 3).map((item, idx) => (
+                    <div key={idx} style={{ fontSize: '11px', color: '#334155', marginBottom: '3px', lineHeight: '1.3' }}>
+                      • {item}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Auto-Block Toggle Switch */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a' }}>
+                    Auto-block high risk sites
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>
+                    Intercepts dangerous sites before navigation
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleAutoBlock}
+                  style={{
+                    width: '32px',
+                    height: '18px',
+                    borderRadius: '9px',
+                    background: autoBlockDangerous ? '#0f172a' : '#cbd5e1',
+                    position: 'relative',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                    padding: '0',
+                  }}
+                >
                   <div
                     style={{
-                      background: '#ffffff',
-                      border: `1px solid ${pageVerdict === 'DANGER' ? '#fecaca' : pageVerdict === 'CAUTION' ? '#fde68a' : '#bbf7d0'}`,
-                      borderRadius: '6px',
-                      padding: '5px 8px',
-                      marginBottom: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      background: '#fff',
+                      position: 'absolute',
+                      top: '2px',
+                      left: autoBlockDangerous ? '16px' : '2px',
+                      transition: 'left 0.2s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
                     }}
-                  >
-                    {pageVerdict === 'DANGER' ? (
-                      <AlertOctagon size={13} color="#b91c1c" />
-                    ) : pageVerdict === 'CAUTION' ? (
-                      <AlertTriangle size={13} color="#b45309" />
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: SCAN ON-SCREEN QR */}
+      {activeTab === 'scanner' && (
+        <div>
+          {/* Capture Button */}
+          <button
+            onClick={handleCaptureScreenQr}
+            disabled={isCapturing}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: '#0f172a',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: isCapturing ? 'not-allowed' : 'pointer',
+              opacity: isCapturing ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginBottom: '8px',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            {isCapturing ? (
+              <>
+                <RefreshCw size={13} className="animate-spin" />
+                <span>Scanning active tab...</span>
+              </>
+            ) : (
+              <>
+                <Camera size={14} />
+                <span>Scan QR on current page</span>
+              </>
+            )}
+          </button>
+
+          <div style={{ fontSize: '10px', color: '#64748b', textAlign: 'center', marginBottom: '10px' }}>
+            Takes a temporary screen snapshot to decode on-screen QR codes or UPI payments.
+          </div>
+
+          {/* QR Error Banner */}
+          {qrError && (
+            <div
+              style={{
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                marginBottom: '10px',
+                fontSize: '11px',
+                color: '#92400e',
+                lineHeight: '1.4',
+              }}
+            >
+              {qrError}
+            </div>
+          )}
+
+          {/* Captured QR Result Display */}
+          {qrResult && (
+            <div style={{ marginBottom: '10px' }}>
+              <div
+                style={{
+                  background:
+                    qrResult.verdict === 'DANGER' ? '#fef2f2' : qrResult.verdict === 'CAUTION' ? '#fffbeb' : '#f0fdf4',
+                  border: `1px solid ${
+                    qrResult.verdict === 'DANGER' ? '#fecaca' : qrResult.verdict === 'CAUTION' ? '#fde68a' : '#bbf7d0'
+                  }`,
+                  borderRadius: '8px',
+                  padding: '10px 12px',
+                  marginBottom: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {qrResult.verdict === 'DANGER' ? (
+                      <AlertOctagon size={15} color="#b91c1c" />
+                    ) : qrResult.verdict === 'CAUTION' ? (
+                      <AlertTriangle size={15} color="#b45309" />
                     ) : (
-                      <CheckCircle2 size={13} color="#15803d" />
+                      <CheckCircle2 size={15} color="#15803d" />
                     )}
                     <span
                       style={{
                         fontSize: '11px',
-                        fontWeight: '800',
-                        color: pageVerdict === 'DANGER' ? '#b91c1c' : pageVerdict === 'CAUTION' ? '#b45309' : '#15803d',
+                        fontWeight: '700',
+                        color:
+                          qrResult.verdict === 'DANGER'
+                            ? '#b91c1c'
+                            : qrResult.verdict === 'CAUTION'
+                            ? '#b45309'
+                            : '#15803d',
                       }}
                     >
-                      {pageVerdict === 'DANGER'
-                        ? 'DO NOT CLICK / SUSPICIOUS'
-                        : pageVerdict === 'CAUTION'
-                        ? 'PROCEED WITH CAUTION'
-                        : 'SAFE TO CLICK / PROCEED'}
+                      {qrResult.verdict === 'DANGER'
+                        ? 'Dangerous'
+                        : qrResult.verdict === 'CAUTION'
+                        ? 'Caution Advised'
+                        : 'Safe'}
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a', lineHeight: '1.4', marginBottom: '4px' }}>
-                    {data.explanation}
-                  </div>
-
-                  <div style={{ fontSize: '9px', fontFamily: 'monospace', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {data.url}
-                  </div>
+                  <span style={{ fontSize: '13px', fontWeight: '700', fontFamily: 'monospace', color: '#0f172a' }}>
+                    {qrResult.riskScore} <span style={{ fontSize: '10px', color: '#64748b' }}>/ 100</span>
+                  </span>
                 </div>
 
-                {/* IntentGuard Card */}
-                {data.intentGuard && (
-                  <div style={{ background: '#ffffff', borderRadius: '8px', padding: '10px', border: '1px solid #e2e8f0', marginBottom: '8px', fontSize: '11px' }}>
-                    <div style={{ color: '#0f172a', fontWeight: '700', fontFamily: 'monospace', fontSize: '10px', textTransform: 'uppercase', marginBottom: '3px' }}>
-                      Identity Layer
-                    </div>
-                    <div style={{ color: '#475569' }}>
-                      Claimed Brand: <strong style={{ color: '#0f172a' }}>{data.intentGuard.claimedBrand || 'None detected'}</strong>
-                    </div>
-                    <div style={{ color: data.intentGuard.isOfficialDomain ? '#15803d' : '#b91c1c', marginTop: '2px' }}>
-                      Official Domain: <strong>{data.intentGuard.isOfficialDomain ? 'YES' : 'NO'}</strong>
-                    </div>
-                    {data.intentGuard.hasCredentialTrap && (
-                      <div style={{ color: '#b91c1c', fontWeight: '600', marginTop: '3px' }}>
-                        Sensitive credential inputs detected on unofficial host.
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div style={{ fontSize: '11px', fontWeight: '500', color: '#0f172a', lineHeight: '1.4', marginBottom: '6px' }}>
+                  {qrResult.explanation}
+                </div>
 
-                {/* Evidence List */}
-                {data.why && data.why.length > 0 && (
-                  <div style={{ background: '#ffffff', borderRadius: '8px', padding: '10px', border: '1px solid #e2e8f0', marginBottom: '8px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '700', fontFamily: 'monospace', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                      Observed Evidence:
-                    </div>
-                    {data.why.slice(0, 3).map((item, idx) => (
-                      <div key={idx} style={{ fontSize: '10px', color: '#475569', marginBottom: '2px', lineHeight: '1.3' }}>
-                        • {item}
-                      </div>
-                    ))}
+                {qrResult.rawContent && (
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '5px',
+                      padding: '4px 6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '6px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontFamily: 'monospace',
+                        color: '#475569',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {qrResult.rawContent}
+                    </span>
+                    <button
+                      onClick={() => handleCopyContent(qrResult.rawContent!)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#64748b' }}
+                      title="Copy"
+                    >
+                      {copied ? <Check size={11} color="#15803d" /> : <Copy size={11} />}
+                    </button>
                   </div>
                 )}
               </div>
-            )}
+
+              {/* UPI PaymentTruth Semantics */}
+              {qrResult.paymentTruth?.isUPI && (
+                <div
+                  style={{
+                    background: '#ffffff',
+                    borderRadius: '8px',
+                    padding: '8px 10px',
+                    border: '1px solid #e2e8f0',
+                    marginBottom: '8px',
+                    fontSize: '11px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <span style={{ color: '#64748b' }}>Recipient</span>
+                    <span style={{ fontWeight: '600', color: '#0f172a' }}>
+                      {qrResult.paymentTruth.payeeName || 'Unknown'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <span style={{ color: '#64748b' }}>UPI ID</span>
+                    <span style={{ fontFamily: 'monospace', color: '#0f172a' }}>
+                      {qrResult.paymentTruth.upiId}
+                    </span>
+                  </div>
+                  {qrResult.paymentTruth.amount && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <span style={{ color: '#64748b' }}>Amount</span>
+                      <span style={{ fontWeight: '700', color: '#0f172a' }}>
+                        ₹{qrResult.paymentTruth.amount}
+                      </span>
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      marginTop: '4px',
+                      paddingTop: '4px',
+                      borderTop: '1px solid #f1f5f9',
+                      color: qrResult.paymentTruth.intentMismatch ? '#dc2626' : '#334155',
+                      fontWeight: qrResult.paymentTruth.intentMismatch ? '600' : 'normal',
+                    }}
+                  >
+                    {qrResult.paymentTruth.actionDescription}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {qrResult.rawContent && /^https?:\/\//i.test(qrResult.rawContent) && (
+                  <button
+                    onClick={() => {
+                      if (qrResult.verdict === 'DANGER') {
+                        if (confirm('Warning: Flagged as dangerous. Open anyway?')) {
+                          chrome.tabs.create({ url: qrResult.rawContent });
+                        }
+                      } else {
+                        chrome.tabs.create({ url: qrResult.rawContent });
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      background: qrResult.verdict === 'DANGER' ? '#fee2e2' : '#0f172a',
+                      color: qrResult.verdict === 'DANGER' ? '#b91c1c' : '#ffffff',
+                      border: qrResult.verdict === 'DANGER' ? '1px solid #fca5a5' : 'none',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {qrResult.verdict === 'DANGER' ? 'Open Anyway' : 'Open Link'}
+                  </button>
+                )}
+                <button
+                  onClick={handleCaptureScreenQr}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    color: '#0f172a',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Scan Again
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Test Vectors & Image Upload */}
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '8px',
+              padding: '10px',
+              border: '1px solid #e2e8f0',
+              marginTop: '8px',
+            }}
+          >
+            <div style={{ fontSize: '10px', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+              Test presets:
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+              <button
+                type="button"
+                onClick={() => handleAnalyzePayload('https://sbi-online-banking-portal.net/login')}
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '5px',
+                  background: '#f8f9fa',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '10px',
+                  fontWeight: '500',
+                  color: '#0f172a',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                Fake Bank Link
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAnalyzePayload('upi://pay?pa=rahul@upi&pn=Rahul%20Kumar&am=5000', 'RECEIVE_MONEY')}
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '5px',
+                  background: '#f8f9fa',
+                  border: '1px solid #e2e8f0',
+                  fontSize: '10px',
+                  fontWeight: '500',
+                  color: '#b91c1c',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                Reverse Payment
+              </button>
+            </div>
+
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '6px',
+                borderRadius: '6px',
+                border: '1px dashed #cbd5e1',
+                fontSize: '10px',
+                color: '#64748b',
+                cursor: 'pointer',
+              }}
+            >
+              <Upload size={12} />
+              <span>Or drop QR image file</span>
+              <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+            </label>
           </div>
-        )}
-      </div>
-
-      {/* Demo Simulation & File Upload Box */}
-      <div style={{ background: '#ffffff', borderRadius: '8px', padding: '10px', border: '1px solid #e2e8f0', marginTop: '10px' }}>
-        <div style={{ fontSize: '10px', fontWeight: '700', fontFamily: 'monospace', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>
-          Test Scenarios / Image Upload:
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
-          <button
-            onClick={() => handleAnalyzePayload('https://sbi-online-banking-portal.net/login')}
-            style={{
-              padding: '5px 8px',
-              borderRadius: '5px',
-              background: '#f8f9fa',
-              border: '1px solid #e2e8f0',
-              fontSize: '10px',
-              fontWeight: '600',
-              color: '#0f172a',
-              textAlign: 'left',
-              cursor: 'pointer',
-            }}
-          >
-            Fake Bank Link QR
-          </button>
-
-          <button
-            onClick={() => handleAnalyzePayload('upi://pay?pa=rahul@upi&pn=Rahul%20Kumar&am=5000', 'RECEIVE_MONEY')}
-            style={{
-              padding: '5px 8px',
-              borderRadius: '5px',
-              background: '#f8f9fa',
-              border: '1px solid #e2e8f0',
-              fontSize: '10px',
-              fontWeight: '600',
-              color: '#b91c1c',
-              textAlign: 'left',
-              cursor: 'pointer',
-            }}
-          >
-            Reverse Payment QR
-          </button>
-        </div>
-
-        <label
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            padding: '6px',
-            borderRadius: '6px',
-            border: '1px dashed #cbd5e1',
-            fontSize: '10px',
-            color: '#64748b',
-            cursor: 'pointer',
-          }}
-        >
-          <Upload size={12} />
-          <span>Or Upload QR Image File</span>
-          <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
-        </label>
-      </div>
+      )}
     </div>
   );
 };

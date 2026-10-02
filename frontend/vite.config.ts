@@ -7,13 +7,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'shield.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'PhishLens — Intent-Aware Security',
         short_name: 'PhishLens',
         description: 'Verify the Identity, Destination, and Action behind links and QR codes.',
-        theme_color: '#0b0f19',
-        background_color: '#0b0f19',
+        theme_color: '#f8f9fa',
+        background_color: '#f8f9fa',
         display: 'standalone',
         icons: [
           {
@@ -28,9 +28,13 @@ export default defineConfig({
           },
         ],
       },
+      devOptions: {
+        enabled: true,
+      },
     }),
   ],
   server: {
+    host: '0.0.0.0',
     port: 3000,
     proxy: {
       '/api': {

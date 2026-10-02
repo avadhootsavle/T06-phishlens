@@ -1,0 +1,197 @@
+import { PrismaClient, PaymentIdType } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('Seeding PhishLens protected brands and demo merchants...');
+
+  const brands = [
+    {
+      name: 'State Bank of India',
+      normalizedName: 'sbi',
+      category: 'Banking',
+      keywords: ['sbi', 'state bank of india', 'onlinesbi', 'yono'],
+      domains: ['sbi.co.in', 'onlinesbi.sbi', 'onlinesbi.com', 'sbicard.com'],
+    },
+    {
+      name: 'HDFC Bank',
+      normalizedName: 'hdfc',
+      category: 'Banking',
+      keywords: ['hdfc', 'hdfc bank', 'netbanking hdfc'],
+      domains: ['hdfcbank.com', 'hdfc.com'],
+    },
+    {
+      name: 'ICICI Bank',
+      normalizedName: 'icici',
+      category: 'Banking',
+      keywords: ['icici', 'icici bank', 'imobile'],
+      domains: ['icicibank.com'],
+    },
+    {
+      name: 'Axis Bank',
+      normalizedName: 'axis',
+      category: 'Banking',
+      keywords: ['axis', 'axis bank'],
+      domains: ['axisbank.com'],
+    },
+    {
+      name: 'Paytm',
+      normalizedName: 'paytm',
+      category: 'Payments',
+      keywords: ['paytm', 'paytm payments bank', 'paytm wallet'],
+      domains: ['paytm.com', 'paytmbank.com'],
+    },
+    {
+      name: 'PhonePe',
+      normalizedName: 'phonepe',
+      category: 'Payments',
+      keywords: ['phonepe', 'phone pe'],
+      domains: ['phonepe.com'],
+    },
+    {
+      name: 'Google Pay',
+      normalizedName: 'google pay',
+      category: 'Payments',
+      keywords: ['google pay', 'gpay', 'tez'],
+      domains: ['pay.google.com', 'google.com'],
+    },
+    {
+      name: 'UIDAI',
+      normalizedName: 'uidai',
+      category: 'Government',
+      keywords: ['uidai', 'aadhaar', 'myaadhaar'],
+      domains: ['uidai.gov.in', 'myaadhaar.uidai.gov.in'],
+    },
+    {
+      name: 'Income Tax Department',
+      normalizedName: 'incometax',
+      category: 'Government',
+      keywords: ['income tax', 'incometax', 'itr refund', 'pan verification'],
+      domains: ['incometax.gov.in', 'tin-nsdl.com'],
+    },
+    {
+      name: 'IRCTC',
+      normalizedName: 'irctc',
+      category: 'Travel',
+      keywords: ['irctc', 'indian railways ticket'],
+      domains: ['irctc.co.in'],
+    },
+    {
+      name: 'India Post',
+      normalizedName: 'indiapost',
+      category: 'Postal/Government',
+      keywords: ['india post', 'indiapost', 'speed post tracking'],
+      domains: ['indiapost.gov.in', 'ippbonline.com'],
+    },
+  ];
+
+  for (const b of brands) {
+    const brand = await prisma.brand.upsert({
+      where: { normalizedName: b.normalizedName },
+      update: {
+        name: b.name,
+        category: b.category,
+        keywords: b.keywords,
+      },
+      create: {
+        name: b.name,
+        normalizedName: b.normalizedName,
+        category: b.category,
+        keywords: b.keywords,
+      },
+    });
+
+    for (const domain of b.domains) {
+      await prisma.brandDomain.upsert({
+        where: { officialDomain: domain },
+        update: { brandId: brand.id },
+        create: {
+          brandId: brand.id,
+          officialDomain: domain,
+        },
+      });
+    }
+  }
+
+  // Demo Merchants for PaymentTruth
+  const merchants = [
+    {
+      name: 'ABC Medical',
+      normalizedName: 'abc medical',
+      category: 'Healthcare',
+      verified: true,
+      identifiers: [
+        { type: PaymentIdType.UPI_ID, value: 'abcmedical@upi' },
+        { type: PaymentIdType.UPI_ID, value: 'abcpharmacy@okhdfcbank' },
+      ],
+    },
+    {
+      name: 'Apollo Pharmacy',
+      normalizedName: 'apollo pharmacy',
+      category: 'Healthcare',
+      verified: true,
+      identifiers: [
+        { type: PaymentIdType.UPI_ID, value: 'apollopharmacy@upi' },
+        { type: PaymentIdType.UPI_ID, value: 'apollo.pay@icici' },
+      ],
+    },
+    {
+      name: 'Star Supermarket',
+      normalizedName: 'star supermarket',
+      category: 'Retail',
+      verified: true,
+      identifiers: [
+        { type: PaymentIdType.UPI_ID, value: 'starsupermarket@upi' },
+      ],
+    },
+    {
+      name: 'Fresh Mart Grocery',
+      normalizedName: 'fresh mart grocery',
+      category: 'Grocery',
+      verified: true,
+      identifiers: [
+        { type: PaymentIdType.UPI_ID, value: 'freshmart@upi' },
+      ],
+    },
+  ];
+
+  for (const m of merchants) {
+    const merchant = await prisma.merchant.upsert({
+      where: { normalizedName: m.normalizedName },
+      update: {
+        name: m.name,
+        verified: m.verified,
+        category: m.category,
+      },
+      create: {
+        name: m.name,
+        normalizedName: m.normalizedName,
+        verified: m.verified,
+        category: m.category,
+      },
+    });
+
+    for (const ident of m.identifiers) {
+      await prisma.merchantPaymentIdentifier.upsert({
+        where: { value: ident.value },
+        update: { merchantId: merchant.id, type: ident.type },
+        create: {
+          merchantId: merchant.id,
+          type: ident.type,
+          value: ident.value,
+        },
+      });
+    }
+  }
+
+  console.log('Seeding completed successfully!');
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

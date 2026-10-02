@@ -1,0 +1,186 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum InputType {
+  URL
+  QR_URL
+  QR_UPI
+}
+
+enum Verdict {
+  SAFE
+  CAUTION
+  DANGER
+}
+
+enum SignalSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReportStatus {
+  PENDING
+  CONFIRMED
+  FALSE_POSITIVE
+  REJECTED
+}
+
+enum ReportCategory {
+  PHISHING_WEBSITE
+  SUSPICIOUS_PAYMENT
+  INCORRECT_RECIPIENT
+  BRAND_IMPERSONATION
+  FALSE_POSITIVE
+  OTHER
+}
+
+enum PaymentIdType {
+  UPI_ID
+  BANK_ACCOUNT
+  QR_STRING
+}
+
+enum CampaignStatus {
+  ACTIVE
+  MONITORED
+  RESOLVED
+}
+
+model Scan {
+  id            String       @id @default(uuid())
+  inputType     InputType
+  verdict       Verdict
+  riskScore     Int
+  explanation   String
+  hostname      String?
+  finalHostname String?
+  url           String?
+  rawInput      String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  signals       ScanSignal[]
+  reports       Report[]
+
+  @@index([hostname])
+  @@index([verdict])
+  @@index([createdAt])
+}
+
+model ScanSignal {
+  id          String         @id @default(uuid())
+  scanId      String
+  code        String
+  severity    SignalSeverity
+  scoreImpact Int
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+
+  scan        Scan           @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@index([code])
+}
+
+model Brand {
+  id             String            @id @default(uuid())
+  name           String            @unique
+  normalizedName String            @unique
+  category       String
+  keywords       String[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  domains        BrandDomain[]
+  fingerprints   ScamFingerprint[]
+
+  @@index([normalizedName])
+}
+
+model BrandDomain {
+  id             String   @id @default(uuid())
+  brandId        String
+  officialDomain String   @unique
+  createdAt      DateTime @default(now())
+
+  brand          Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([officialDomain])
+}
+
+model Merchant {
+  id             String                      @id @default(uuid())
+  name           String
+  normalizedName String                      @unique
+  verified       Boolean                     @default(false)
+  category       String?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  identifiers    MerchantPaymentIdentifier[]
+
+  @@index([normalizedName])
+}
+
+model MerchantPaymentIdentifier {
+  id         String        @id @default(uuid())
+  merchantId String
+  type       PaymentIdType
+  value      String        @unique
+  createdAt  DateTime      @default(now())
+
+  merchant   Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([value])
+}
+
+model Report {
+  id        String         @id @default(uuid())
+  scanId    String?
+  category  ReportCategory
+  note      String?
+  status    ReportStatus   @default(PENDING)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  scan      Scan?          @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@index([scanId])
+  @@index([status])
+}
+
+model ScamCampaign {
+  id           String            @id @default(uuid())
+  name         String            @unique
+  status       CampaignStatus    @default(ACTIVE)
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  fingerprints ScamFingerprint[]
+}
+
+model ScamFingerprint {
+  id              String        @id @default(uuid())
+  brandId         String?
+  campaignId      String?
+  fingerprintData Json
+  confirmed       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  brand           Brand?        @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  campaign        ScamCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([brandId])
+  @@index([campaignId])
+}

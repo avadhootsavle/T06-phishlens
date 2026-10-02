@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, QrCode, Link2, SlidersHorizontal, Info } from 'lucide-react';
+import { Shield, QrCode, Link2, SlidersHorizontal, Info, Download } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
@@ -46,8 +46,16 @@ export const Navbar: React.FC = () => {
             })}
           </div>
 
-          {/* Right Status Pill */}
+          {/* Right Status Pill & Install Button */}
           <div className="hidden sm:flex items-center space-x-2">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('open-pwa-install'))}
+              className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+              title="Install PhishLens App"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Install App</span>
+            </button>
             <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Engine Active</span>
@@ -56,6 +64,14 @@ export const Navbar: React.FC = () => {
 
           {/* Mobile Quick Action Buttons */}
           <div className="flex md:hidden items-center space-x-0.5">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('open-pwa-install'))}
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+              aria-label="Install App"
+              title="Install App"
+            >
+              <Download className="w-4 h-4" />
+            </button>
             <Link
               to="/scan-qr"
               className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"

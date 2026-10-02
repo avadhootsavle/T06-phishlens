@@ -29,20 +29,30 @@ const Popup: React.FC = () => {
   const [data, setData] = useState<TabScanState | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [currentUrl, setCurrentUrl] = useState<string>('');
+  const [autoBlockDangerous, setAutoBlockDangerous] = useState<boolean>(true);
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const activeTab = tabs[0];
       if (activeTab?.id && activeTab.url) {
         setCurrentUrl(activeTab.url);
-        const stored = await chrome.storage.local.get(`tab_${activeTab.id}`);
+        const stored = await chrome.storage.local.get([`tab_${activeTab.id}`, 'autoBlockDangerous']);
         if (stored[`tab_${activeTab.id}`]) {
           setData(stored[`tab_${activeTab.id}`]);
+        }
+        if (stored.autoBlockDangerous !== undefined) {
+          setAutoBlockDangerous(stored.autoBlockDangerous);
         }
       }
       setLoading(false);
     });
   }, []);
+
+  const toggleAutoBlock = async () => {
+    const newVal = !autoBlockDangerous;
+    setAutoBlockDangerous(newVal);
+    await chrome.storage.local.set({ autoBlockDangerous: newVal });
+  };
 
   const openPwa = () => {
     chrome.tabs.create({ url: 'http://localhost:3000' });
@@ -92,6 +102,59 @@ const Popup: React.FC = () => {
           style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
         >
           <ExternalLink size={14} />
+        </button>
+      </div>
+
+      {/* Auto-Block Toggle Card */}
+      <div
+        style={{
+          background: '#0f172a',
+          borderRadius: '12px',
+          padding: '10px 12px',
+          border: '1px solid #1e293b',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>🚫</span> Block Dangerous Sites (&gt;70)
+          </div>
+          <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '2px' }}>
+            {autoBlockDangerous ? 'Active threat blocker is ON' : 'Warning only (Blocker OFF)'}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={toggleAutoBlock}
+          style={{
+            width: '36px',
+            height: '20px',
+            borderRadius: '10px',
+            background: autoBlockDangerous ? '#ef4444' : '#334155',
+            position: 'relative',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'background 0.2s',
+            padding: '0',
+          }}
+          title={autoBlockDangerous ? 'Disable Auto-Block' : 'Enable Auto-Block'}
+        >
+          <div
+            style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              background: '#fff',
+              position: 'absolute',
+              top: '2px',
+              left: autoBlockDangerous ? '18px' : '2px',
+              transition: 'left 0.2s',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+            }}
+          />
         </button>
       </div>
 

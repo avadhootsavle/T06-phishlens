@@ -101,7 +101,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         });
 
         if (newTab.id) {
-          // Pre-store scan result and set auto_inspect flag so HUD opens on the final destination page
+          // Pre-store scan result and set auto_inspect flag so HUD/Blocker opens on the final destination page
           await chrome.storage.local.set({
             [`tab_${newTab.id}`]: scanResult,
             [`auto_inspect_${newTab.id}`]: scanResult,
@@ -148,13 +148,53 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 
     // Update Action Badge
     updateBadge(details.tabId, data.verdict);
+
+    // Check if site should be blocked (Risk Score > 70)
+    const stored = await chrome.storage.local.get(['autoBlockDangerous', `bypass_block_${details.tabId}`]);
+    const isAutoBlockEnabled = stored.autoBlockDangerous !== false;
+    const isBypassed = !!stored[`bypass_block_${details.tabId}`];
+
+    if (isAutoBlockEnabled && !isBypassed && data.riskScore > 70) {
+      try {
+        await chrome.tabs.sendMessage(details.tabId, {
+          type: 'PHISHLENS_BLOCK_PAGE',
+          result: data,
+        });
+      } catch {
+        // Tab content script will check CHECK_SHOULD_BLOCK when loaded
+      }
+    }
   } catch (err) {
     console.error('PhishLens background scan error:', err);
   }
 });
 
-// 4. Listen for runtime messages (Metadata enrichment & Auto-Inspect checks)
+// 4. Listen for runtime messages (Metadata enrichment, Block checks & Bypasses)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'CHECK_SHOULD_BLOCK' && sender.tab?.id) {
+    const tabId = sender.tab.id;
+    chrome.storage.local.get([`tab_${tabId}`, 'autoBlockDangerous', `bypass_block_${tabId}`]).then((stored) => {
+      const scanData: TabScanState | undefined = stored[`tab_${tabId}`];
+      const isAutoBlockEnabled = stored.autoBlockDangerous !== false;
+      const isBypassed = !!stored[`bypass_block_${tabId}`];
+
+      if (isAutoBlockEnabled && !isBypassed && scanData && scanData.riskScore > 70) {
+        sendResponse({ shouldBlock: true, scanResult: scanData });
+      } else {
+        sendResponse({ shouldBlock: false });
+      }
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  if (message.type === 'BYPASS_BLOCK_FOR_TAB' && sender.tab?.id) {
+    const tabId = sender.tab.id;
+    chrome.storage.local.set({ [`bypass_block_${tabId}`]: true }).then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+
   if (message.type === 'CHECK_AUTO_INSPECT' && sender.tab?.id) {
     const tabId = sender.tab.id;
     chrome.storage.local.get([`auto_inspect_${tabId}`, `tab_${tabId}`]).then((stored) => {
@@ -174,8 +214,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabId = sender.tab.id;
 
     (async () => {
-      const stored = await chrome.storage.local.get(`tab_${tabId}`);
+      const stored = await chrome.storage.local.get([`tab_${tabId}`, 'autoBlockDangerous', `bypass_block_${tabId}`]);
       const scanData: TabScanState | undefined = stored[`tab_${tabId}`];
+      const isAutoBlockEnabled = stored.autoBlockDangerous !== false;
+      const isBypassed = !!stored[`bypass_block_${tabId}`];
 
       if (!scanData || !scanData.scanId) return;
 
@@ -194,14 +236,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await chrome.storage.local.set({ [`tab_${tabId}`]: updatedData });
           updateBadge(tabId, updatedData.verdict);
 
-          // Update HUD overlay on the final page with live DOM analysis
-          try {
-            await chrome.tabs.sendMessage(tabId, {
-              type: 'PHISHLENS_SHOW_OVERLAY_RESULT',
-              result: updatedData,
-            });
-          } catch {
-            // Tab may not have listener attached yet
+          // If risk score exceeds 70 after detecting credential forms, trigger blocker overlay
+          if (isAutoBlockEnabled && !isBypassed && updatedData.riskScore > 70) {
+            try {
+              await chrome.tabs.sendMessage(tabId, {
+                type: 'PHISHLENS_BLOCK_PAGE',
+                result: updatedData,
+              });
+            } catch {
+              // ignore
+            }
+          } else {
+            // Update HUD overlay with live DOM analysis
+            try {
+              await chrome.tabs.sendMessage(tabId, {
+                type: 'PHISHLENS_SHOW_OVERLAY_RESULT',
+                result: updatedData,
+              });
+            } catch {
+              // Tab may not have listener attached yet
+            }
           }
 
           sendResponse({ success: true, verdict: updatedData.verdict });

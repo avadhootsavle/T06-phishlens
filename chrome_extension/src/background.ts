@@ -23,7 +23,77 @@ interface TabScanState {
   };
 }
 
-// 1. Listen for top-level navigation commitments
+// 1. Setup Right-Click Context Menu for Links and Text Selections
+function setupContextMenu() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'phishlens_scan_link',
+      title: '🛡️ Scan link with PhishLens',
+      contexts: ['link', 'selection'],
+    });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(setupContextMenu);
+chrome.runtime.onStartup.addListener(setupContextMenu);
+
+// 2. Handle Right-Click Context Menu Click
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'phishlens_scan_link' && tab?.id) {
+    const targetUrl = info.linkUrl || info.selectionText;
+    if (!targetUrl) return;
+
+    // Send instant loading HUD state to content script overlay
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'PHISHLENS_SHOW_OVERLAY_LOADING',
+        url: targetUrl,
+      });
+    } catch {
+      // Content script may not be injected yet in pre-existing tabs
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js'],
+        });
+        await chrome.tabs.sendMessage(tab.id, {
+          type: 'PHISHLENS_SHOW_OVERLAY_LOADING',
+          url: targetUrl,
+        });
+      } catch (err) {
+        console.error('Failed to communicate with content script:', err);
+      }
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/scans/url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: targetUrl }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} from backend scanner`);
+      }
+
+      const scanResult = await response.json();
+
+      // Display floating HUD overlay in the active tab
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'PHISHLENS_SHOW_OVERLAY_RESULT',
+        result: scanResult,
+      });
+    } catch (err) {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'PHISHLENS_SHOW_OVERLAY_ERROR',
+        error: (err as Error).message || 'Failed to scan target link',
+        url: targetUrl,
+      });
+    }
+  }
+});
+
+// 3. Listen for top-level navigation commitments
 chrome.webNavigation.onCommitted.addListener(async (details) => {
   if (details.frameId !== 0) return; // Top-level frame only
 
@@ -51,7 +121,7 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
   }
 });
 
-// 2. Listen for safe page metadata from content script
+// 4. Listen for safe page metadata from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'PAGE_METADATA_EXTRACTED' && sender.tab?.id) {
     const tabId = sender.tab.id;

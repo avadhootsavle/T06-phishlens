@@ -117,18 +117,30 @@ model BrandDomain {
   @@index([officialDomain])
 }
 
+enum MerchantStatus {
+  ACTIVE
+  REVOKED
+}
+
 model Merchant {
   id             String                      @id @default(uuid())
-  name           String
-  normalizedName String                      @unique
-  verified       Boolean                     @default(false)
+  shopName       String
+  vpa            String                      @unique
+  city           String?
+  status         MerchantStatus              @default(ACTIVE)
+  revokedAt      DateTime?
+  name           String?
+  normalizedName String?
+  verified       Boolean                     @default(true)
   category       String?
   createdAt      DateTime                    @default(now())
   updatedAt      DateTime                    @updatedAt
 
   identifiers    MerchantPaymentIdentifier[]
 
-  @@index([normalizedName])
+  @@index([vpa])
+  @@index([status])
+  @@index([shopName])
 }
 
 model MerchantPaymentIdentifier {

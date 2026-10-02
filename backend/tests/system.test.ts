@@ -4,6 +4,7 @@ import { parseUPIString } from '../src/pipeline/upiParser.js';
 import { calculateRisk } from '../src/engine/riskEngine.js';
 import { analyzeUrlHeuristics } from '../src/pipeline/urlHeuristics.js';
 import { validateSSRF, SSRFError } from '../src/security/ssrf.js';
+import { sanitizeUrlForStorage } from '../src/utils/sanitizeUrl.js';
 import { SignalSeverity, Verdict } from '@prisma/client';
 
 async function runTests() {
@@ -140,7 +141,18 @@ async function runTests() {
     assert.ok(h.suspiciousKeywordsFound.includes('verify'));
   });
 
+  // 5. Query Parameter Hashing Privacy Tests
+  test('Logs and storage store only hashed query parameters', () => {
+    const raw = 'https://example.com/login?token=mysecrettoken&user=john@doe.com';
+    const sanitized = sanitizeUrlForStorage(raw);
+    assert.strictEqual(sanitized.includes('mysecrettoken'), false);
+    assert.strictEqual(sanitized.includes('john@doe.com'), false);
+    assert.ok(sanitized.includes('token=hash_'));
+    assert.ok(sanitized.includes('user=hash_'));
+  });
+
   console.log(`\n🎉 Test Results: ${passed}/${total} passed (${Math.round((passed / total) * 100)}%)\n`);
+
 }
 
 runTests().catch((e) => {

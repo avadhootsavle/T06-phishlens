@@ -185,17 +185,25 @@ async function main() {
 
   for (const m of merchants) {
     const merchant = await prisma.merchant.upsert({
-      where: { normalizedName: m.normalizedName },
+      where: { vpa: m.identifiers[0].value },
       update: {
-        name: m.name,
-        verified: m.verified,
-        category: m.category,
-      },
-      create: {
+        shopName: m.name,
         name: m.name,
         normalizedName: m.normalizedName,
         verified: m.verified,
         category: m.category,
+        city: 'Mumbai',
+        status: 'ACTIVE',
+      },
+      create: {
+        shopName: m.name,
+        vpa: m.identifiers[0].value,
+        name: m.name,
+        normalizedName: m.normalizedName,
+        verified: m.verified,
+        category: m.category,
+        city: 'Mumbai',
+        status: 'ACTIVE',
       },
     });
 
@@ -208,6 +216,45 @@ async function main() {
           type: ident.type,
           value: ident.value,
         },
+      });
+    }
+  }
+
+  // Seed sample scam campaign
+  const campaign = await prisma.scamCampaign.upsert({
+    where: { name: 'Operation Fake KYC India 2026' },
+    update: {},
+    create: {
+      name: 'Operation Fake KYC India 2026',
+      status: 'ACTIVE',
+      notes: 'Coordinated campaign distributing SMS links mimicking SBI and Paytm net banking login forms with OTP harvesting traps.',
+    },
+  });
+
+  // Seed community reports
+  const sampleReports = [
+    {
+      category: 'PHISHING_WEBSITE' as const,
+      note: 'Received SMS stating electricity bill unpaid, link went to fake Mahavitaran portal asking for credit card.',
+      status: 'PENDING' as const,
+    },
+    {
+      category: 'SUSPICIOUS_PAYMENT' as const,
+      note: 'OLX buyer insisted on scanning a QR code with upi://pay claiming it would credit ₹15,000 to my account.',
+      status: 'CONFIRMED' as const,
+    },
+    {
+      category: 'INCORRECT_RECIPIENT' as const,
+      note: 'Pasted QR sticker at grocery store resolved to random individual instead of the supermarket VPA.',
+      status: 'PENDING' as const,
+    },
+  ];
+
+  for (const rep of sampleReports) {
+    const existing = await prisma.report.findFirst({ where: { note: rep.note } });
+    if (!existing) {
+      await prisma.report.create({
+        data: rep,
       });
     }
   }

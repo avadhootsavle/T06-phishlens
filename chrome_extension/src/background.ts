@@ -26,17 +26,22 @@ interface TabScanState {
   };
 }
 
-// 1. Setup Right-Click Context Menu for Links and Text Selections
+// 1. Setup Right-Click Context Menu for Links, Selections, and Visible Screen QR
 function setupContextMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
+      id: 'phishlens_scan_screen_qr',
+      title: 'Scan Screen for QR Code',
+      contexts: ['page', 'image'],
+    });
+    chrome.contextMenus.create({
       id: 'phishlens_go_to_final_url',
-      title: '🚀 Go to Final URL & Scan with PhishLens',
+      title: 'Unmask Destination & Scan with PhishLens',
       contexts: ['link', 'selection'],
     });
     chrome.contextMenus.create({
       id: 'phishlens_preview_link',
-      title: '🛡️ Preview Link Safety in HUD',
+      title: 'Preview Link Safety in HUD',
       contexts: ['link', 'selection'],
     });
   });
@@ -47,6 +52,27 @@ chrome.runtime.onStartup.addListener(setupContextMenu);
 
 // 2. Handle Right-Click Context Menu Click
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'phishlens_scan_screen_qr' && tab?.id) {
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'TRIGGER_SCREEN_QR_CAPTURE',
+      });
+    } catch {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js'],
+        });
+        await chrome.tabs.sendMessage(tab.id, {
+          type: 'TRIGGER_SCREEN_QR_CAPTURE',
+        });
+      } catch (err) {
+        console.error('Failed to trigger QR scan in tab:', err);
+      }
+    }
+    return;
+  }
+
   const isGoToFinal = info.menuItemId === 'phishlens_go_to_final_url' || info.menuItemId === 'phishlens_scan_link';
   const isPreview = info.menuItemId === 'phishlens_preview_link';
 
@@ -171,6 +197,28 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
 
 // 4. Listen for runtime messages (Metadata enrichment, Block checks & Bypasses)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'CAPTURE_VISIBLE_TAB') {
+    const windowId = sender.tab?.windowId;
+    chrome.tabs.captureVisibleTab(windowId ?? (null as unknown as number), { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError || !dataUrl) {
+        sendResponse({ dataUrl: null, error: chrome.runtime.lastError?.message || 'Screenshot failed' });
+      } else {
+        sendResponse({ dataUrl });
+      }
+    });
+    return true; // Keep message channel open for async response
+  }
+
+  if (message.type === 'OPEN_POPUP_FOR_QR') {
+    try {
+      chrome.action.openPopup?.();
+    } catch {
+      // ignore
+    }
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (message.type === 'CHECK_SHOULD_BLOCK' && sender.tab?.id) {
     const tabId = sender.tab.id;
     chrome.storage.local.get([`tab_${tabId}`, 'autoBlockDangerous', `bypass_block_${tabId}`]).then((stored) => {

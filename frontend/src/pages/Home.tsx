@@ -1,157 +1,207 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { QrCode, Link2, ShieldAlert, Sparkles, ArrowRight, Activity, CheckCircle, Zap } from 'lucide-react';
+import { QrCode, Link2, ArrowRight, ShieldCheck, CreditCard, Layers } from 'lucide-react';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 md:py-16">
       {/* Hero Section */}
-      <div className="text-center max-w-3xl mx-auto mb-12">
-        <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-medium mb-6">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Intent-Aware Cyber Intelligence</span>
+      <div className="text-center max-w-2xl mx-auto mb-12">
+        <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono font-medium mb-5">
+          <span>Security Engine • Version 1.0</span>
         </div>
 
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
-          Existing tools protect destinations.{' '}
-          <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent">
-            PhishLens protects decisions.
-          </span>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 mb-4 leading-tight">
+          Intent-Aware Phishing & Payment Protection
         </h1>
 
-        <p className="text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto">
-          Verify whether the identity, destination, and payment action behind a link or QR code match what you actually intended to do.
+        <p className="text-base text-slate-600 leading-relaxed max-w-xl mx-auto">
+          PhishLens verifies whether the recipient identity, final destination, and transaction action match what you actually intended to do before completing an action.
         </p>
       </div>
 
-      {/* Main Action Cards (Scan QR & Check a Link) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+      {/* Main Action Workspaces: Scan QR or Check Link */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
         {/* QR Scanner Card */}
         <Link
           to="/scan-qr"
-          className="group relative p-8 rounded-3xl glass-card border border-cyan-500/30 hover:border-cyan-400 transition-all duration-300 hover:shadow-glow-cyan overflow-hidden"
+          className="p-6 rounded-xl bg-white border border-slate-200 hover:border-slate-300 shadow-sm transition-all duration-150 flex flex-col justify-between"
         >
-          <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl -z-10 group-hover:bg-cyan-500/20 transition-colors" />
-          
-          <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 mb-6 group-hover:scale-110 transition-transform">
-            <QrCode className="w-7 h-7" />
+          <div>
+            <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 mb-4">
+              <QrCode className="w-5 h-5" />
+            </div>
+
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-slate-900">
+                Scan Payment or Web QR
+              </h2>
+              <ArrowRight className="w-4 h-4 text-slate-400" />
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-6">
+              Decodes UPI payment strings and web URLs. Flags reverse payment tricks where a debit is disguised as a refund, and checks for shop name mismatches.
+            </p>
           </div>
 
-          <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-between">
-            <span>Scan QR Code</span>
-            <ArrowRight className="w-5 h-5 text-cyan-400 group-hover:translate-x-1 transition-transform" />
-          </h2>
-
-          <p className="text-sm text-slate-400 leading-relaxed mb-4">
-            Decode UPI payment semantics. Spot reverse payment scams, unauthorized merchant transfers, and phishing URLs before completing transactions.
-          </p>
-
-          <div className="flex items-center space-x-2 text-xs font-mono text-cyan-300">
-            <Zap className="w-3.5 h-3.5" />
-            <span>PaymentTruth™ Enabled</span>
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-mono">
+            <span>PaymentTruth Module</span>
+            <span className="text-emerald-700 font-medium">Ready to scan</span>
           </div>
         </Link>
 
         {/* Link Analyzer Card */}
         <Link
           to="/check-url"
-          className="group relative p-8 rounded-3xl glass-card border border-blue-500/30 hover:border-blue-400 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10 overflow-hidden"
+          className="p-6 rounded-xl bg-white border border-slate-200 hover:border-slate-300 shadow-sm transition-all duration-150 flex flex-col justify-between"
         >
-          <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -z-10 group-hover:bg-blue-500/20 transition-colors" />
+          <div>
+            <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 mb-4">
+              <Link2 className="w-5 h-5" />
+            </div>
 
-          <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 mb-6 group-hover:scale-110 transition-transform">
-            <Link2 className="w-7 h-7" />
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-slate-900">
+                Inspect a Web Address
+              </h2>
+              <ArrowRight className="w-4 h-4 text-slate-400" />
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-6">
+              Expands URL shorteners and traces redirect chains. Identifies Unicode homoglyphs, newly registered domains via RDAP, and brand impersonation traps.
+            </p>
           </div>
 
-          <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-between">
-            <span>Check a Link</span>
-            <ArrowRight className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform" />
-          </h2>
-
-          <p className="text-sm text-slate-400 leading-relaxed mb-4">
-            Unpack redirect chains, homoglyph lookalikes, domain age, and brand impersonation traps with deterministic non-LLM risk scoring.
-          </p>
-
-          <div className="flex items-center space-x-2 text-xs font-mono text-blue-300">
-            <Zap className="w-3.5 h-3.5" />
-            <span>IntentGuard™ Enabled</span>
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-mono">
+            <span>IntentGuard Module</span>
+            <span className="text-emerald-700 font-medium">Ready to inspect</span>
           </div>
         </Link>
       </div>
 
-      {/* Interactive Hackathon Demo Launcher Section */}
-      <div className="p-6 rounded-2xl glass-card border border-slate-800 mb-12">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Activity className="w-5 h-5 text-cyan-400" />
-            <h3 className="font-bold text-slate-200">Interactive Demo Scenarios</h3>
+      {/* Interactive Verification Presets */}
+      <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-sm mb-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700">
+                1-Click Live Test Scenarios
+              </h3>
+            </div>
+            <p className="text-sm font-semibold text-slate-900 mt-0.5">
+              Live deterministic evaluations matching real-world attack vectors
+            </p>
           </div>
-          <span className="text-xs font-mono text-slate-400">Section 39 Test Scenarios</span>
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600">
+            Judge Evaluation Lab
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          {/* Demo 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {/* Preset 1 */}
           <button
+            type="button"
             onClick={() => navigate('/check-url?demo=intentguard')}
-            className="p-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 text-left transition-colors"
+            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
           >
-            <div className="font-bold text-cyan-300 mb-1">Demo 1: IntentGuard</div>
-            <div className="text-slate-400">SBI impersonation on unofficial domain with credential traps.</div>
+            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
+              <span>1. Fake KYC WhatsApp Link</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+            </div>
+            <div className="text-[11px] text-slate-600 leading-relaxed">
+              SBI brand claim on unofficial newly registered domain with credential fields &rarr; <span className="font-semibold text-red-600 font-mono">DANGER</span>
+            </div>
           </button>
 
-          {/* Demo 2 */}
+          {/* Preset 2 */}
           <button
+            type="button"
             onClick={() => navigate('/scan-qr?demo=reverse-payment')}
-            className="p-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 text-left transition-colors"
+            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
           >
-            <div className="font-bold text-rose-300 mb-1">Demo 2: PaymentTruth</div>
-            <div className="text-slate-400">"Receive ₹5,000 refund" intent scanning a debit QR payload.</div>
+            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
+              <span>2. Reverse Payment Scam</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+            </div>
+            <div className="text-[11px] text-slate-600 leading-relaxed">
+              User expects ₹5,000 refund, but QR executes a debit from user's account &rarr; <span className="font-semibold text-red-600 font-mono">DANGER</span>
+            </div>
           </button>
 
-          {/* Demo 3 */}
+          {/* Preset 3 */}
           <button
-            onClick={() => navigate('/scan-qr?demo=merchant-mismatch')}
-            className="p-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 text-left transition-colors"
+            type="button"
+            onClick={() => navigate('/scan-qr?demo=tampered-sticker')}
+            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
           >
-            <div className="font-bold text-amber-300 mb-1">Demo 3: Payee Mismatch</div>
-            <div className="text-slate-400">Expected "ABC Medical" vs personal UPI recipient.</div>
+            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
+              <span>3. Tampered QR Sticker</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+            </div>
+            <div className="text-[11px] text-slate-600 leading-relaxed">
+              Counterfeit Ed25519 merchant sticker pasted over real shop QR &rarr; <span className="font-semibold text-red-600 font-mono">DANGER</span>
+            </div>
+          </button>
+
+          {/* Preset 4 */}
+          <button
+            type="button"
+            onClick={() => navigate('/check-url?demo=homoglyph')}
+            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
+          >
+            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
+              <span>4. Homoglyph Domain Spoof</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+            </div>
+            <div className="text-[11px] text-slate-600 leading-relaxed">
+              Cyrillic character substitution imitating Paytm login gateway &rarr; <span className="font-semibold text-red-600 font-mono">DANGER</span>
+            </div>
+          </button>
+
+          {/* Preset 5 */}
+          <button
+            type="button"
+            onClick={() => navigate('/scan-qr?demo=merchant-mismatch')}
+            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
+          >
+            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
+              <span>5. Merchant Payee Mismatch</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+            </div>
+            <div className="text-[11px] text-slate-600 leading-relaxed">
+              Intends to pay "ABC Medical", but QR points to personal "Rahul Sharma" &rarr; <span className="font-semibold text-amber-600 font-mono">CAUTION</span>
+            </div>
+          </button>
+
+          {/* Preset 6 */}
+          <button
+            type="button"
+            onClick={() => navigate('/scan-qr?demo=verified-merchant')}
+            className="p-3.5 rounded-lg bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-200 text-left transition-all duration-150 hover:shadow-xs group"
+          >
+            <div className="flex items-center justify-between text-xs font-bold text-emerald-950 mb-1">
+              <span>6. Authentic Verified Shop</span>
+              <ArrowRight className="w-3.5 h-3.5 text-emerald-600 group-hover:text-emerald-900 transition-colors" />
+            </div>
+            <div className="text-[11px] text-emerald-800 leading-relaxed">
+              Cryptographically verified official Ed25519 sticker for Apex Electronics &rarr; <span className="font-semibold text-emerald-700 font-mono">SAFE</span>
+            </div>
           </button>
         </div>
       </div>
 
-      {/* Security Engine Pillars */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 flex items-start space-x-3">
-          <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <div className="font-bold text-sm text-slate-200">Identity (IntentGuard)</div>
-            <div className="text-xs text-slate-400 mt-1">
-              Verifies if site is truly owned by the brand it displays.
-            </div>
-          </div>
+      {/* Trust & Guarantee Panel */}
+      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center space-x-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+          <span>Privacy Guarantee: Query parameters are cryptographically hashed before storage. Sensitive inputs are never captured.</span>
         </div>
-
-        <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 flex items-start space-x-3">
-          <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <div className="font-bold text-sm text-slate-200">Action (PaymentTruth)</div>
-            <div className="text-xs text-slate-400 mt-1">
-              Decodes UPI payloads to prevent fraudulent money deductions.
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 flex items-start space-x-3">
-          <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <div className="font-bold text-sm text-slate-200">Pattern (ScamDNA)</div>
-            <div className="text-xs text-slate-400 mt-1">
-              Recognizes reused phishing kits across disposable domains.
-            </div>
-          </div>
-        </div>
+        <Link to="/about" className="text-slate-900 font-semibold hover:underline shrink-0 text-xs">
+          Learn more
+        </Link>
       </div>
     </div>
   );

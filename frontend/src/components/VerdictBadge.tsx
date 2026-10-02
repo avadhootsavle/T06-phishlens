@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { Verdict } from '../types';
 
 interface VerdictBadgeProps {
@@ -10,22 +10,19 @@ interface VerdictBadgeProps {
 export const VerdictBadge: React.FC<VerdictBadgeProps> = ({ verdict, size = 'md' }) => {
   const configs = {
     SAFE: {
-      label: 'SAFE',
-      icon: ShieldCheck,
-      bg: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400',
-      glow: 'shadow-glow-safe',
+      label: 'Safe',
+      icon: CheckCircle2,
+      style: 'bg-emerald-50 text-emerald-800 border-emerald-200',
     },
     CAUTION: {
-      label: 'CAUTION',
+      label: 'Caution',
       icon: AlertTriangle,
-      bg: 'bg-amber-500/10 border-amber-500/40 text-amber-400',
-      glow: 'shadow-glow-caution',
+      style: 'bg-amber-50 text-amber-800 border-amber-200',
     },
     DANGER: {
-      label: 'DANGER',
-      icon: ShieldAlert,
-      bg: 'bg-rose-500/10 border-rose-500/40 text-rose-400',
-      glow: 'shadow-glow-danger animate-pulse-subtle',
+      label: 'Danger',
+      icon: AlertOctagon,
+      style: 'bg-red-50 text-red-800 border-red-200',
     },
   };
 
@@ -33,23 +30,23 @@ export const VerdictBadge: React.FC<VerdictBadgeProps> = ({ verdict, size = 'md'
   const Icon = current.icon;
 
   const sizeClasses = {
-    sm: 'px-2 py-1 text-xs space-x-1.5',
-    md: 'px-3 py-1.5 text-sm space-x-2',
-    lg: 'px-5 py-2.5 text-lg font-bold space-x-2.5 tracking-wider',
+    sm: 'px-2 py-0.5 text-xs space-x-1 font-medium',
+    md: 'px-2.5 py-1 text-xs space-x-1.5 font-semibold',
+    lg: 'px-3.5 py-1.5 text-sm space-x-2 font-bold tracking-wide',
   };
 
   const iconSizes = {
-    sm: 'w-3.5 h-3.5',
-    md: 'w-4 h-4',
-    lg: 'w-6 h-6',
+    sm: 'w-3 h-3',
+    md: 'w-3.5 h-3.5',
+    lg: 'w-4 h-4',
   };
 
   return (
-    <div
-      className={`inline-flex items-center font-mono font-bold uppercase rounded-full border shadow-lg ${current.bg} ${current.glow} ${sizeClasses[size]}`}
+    <span
+      className={`inline-flex items-center rounded-md border uppercase tracking-wider font-mono ${current.style} ${sizeClasses[size]}`}
     >
       <Icon className={iconSizes[size]} />
       <span>{current.label}</span>
-    </div>
+    </span>
   );
 };

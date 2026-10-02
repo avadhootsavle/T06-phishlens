@@ -85,3 +85,73 @@ export async function updateReportStatus(
     throw new Error('Failed to update report status');
   }
 }
+
+export async function fetchMerchants(): Promise<{ merchants: import('../types').MerchantRecord[] }> {
+  const response = await fetch(`${API_BASE}/merchants`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to fetch merchants');
+  }
+  return response.json();
+}
+
+export async function createMerchant(data: {
+  shopName: string;
+  vpa: string;
+  city?: string;
+}): Promise<{
+  merchant: import('../types').MerchantRecord;
+  token: string;
+  stickerUrl: string;
+  qrEncodedUrl: string;
+}> {
+  const response = await fetch(`${API_BASE}/merchants`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to register merchant');
+  }
+
+  return response.json();
+}
+
+export async function revokeMerchant(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/merchants/${id}/revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to revoke merchant');
+  }
+}
+
+export async function verifyQrContent(
+  content: string,
+  expectedShopName?: string
+): Promise<{
+  status: string;
+  isToken: boolean;
+  shopName?: string;
+  vpa?: string;
+  city?: string | null;
+  message: string;
+}> {
+  const response = await fetch(`${API_BASE}/verify-qr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, expectedShopName }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Verification request failed');
+  }
+
+  return response.json();
+}

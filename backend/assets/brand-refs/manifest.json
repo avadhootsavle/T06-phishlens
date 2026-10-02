@@ -1,0 +1,58 @@
+[
+  {
+    "brand": "State Bank of India",
+    "brandKey": "sbi",
+    "officialDomains": [
+      "sbi.co.in",
+      "onlinesbi.sbi",
+      "onlinesbi.com",
+      "sbicard.com"
+    ],
+    "loginUrl": "https://retail.onlinesbi.sbi/retail/login.htm",
+    "file": "sbi.webp",
+    "dHash": "0110000110000101100000111000001110000011100010110110001101010100"
+  },
+  {
+    "brand": "HDFC Bank",
+    "brandKey": "hdfc",
+    "officialDomains": [
+      "hdfcbank.com",
+      "hdfc.com"
+    ],
+    "loginUrl": "https://netbanking.hdfcbank.com/netbanking/",
+    "file": "hdfc.webp",
+    "dHash": "0000110000001110100101101001011010001110100101100001111000001011"
+  },
+  {
+    "brand": "ICICI Bank",
+    "brandKey": "icici",
+    "officialDomains": [
+      "icicibank.com"
+    ],
+    "loginUrl": "https://www.icicibank.com/",
+    "file": "icici.webp",
+    "dHash": "0010000011101000101110000110100001001100011110000110100000001000"
+  },
+  {
+    "brand": "Paytm",
+    "brandKey": "paytm",
+    "officialDomains": [
+      "paytm.com",
+      "paytmbank.com"
+    ],
+    "loginUrl": "https://paytm.com/",
+    "file": "paytm.webp",
+    "dHash": "0010101110010110101001101001101011011000101001001000001110010110"
+  },
+  {
+    "brand": "Income Tax Department",
+    "brandKey": "incometax",
+    "officialDomains": [
+      "incometax.gov.in",
+      "tin-nsdl.com"
+    ],
+    "loginUrl": "https://www.incometax.gov.in/iec/foportal/",
+    "file": "incometax.webp",
+    "dHash": "1001011011101100111001000010110000111110111011000001111001100001"
+  }
+]

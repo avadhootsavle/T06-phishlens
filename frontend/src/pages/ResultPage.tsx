@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { Shield, AlertTriangle, ArrowLeft, Flag, CheckCircle, ExternalLink, HelpCircle, Layers, PlusCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Flag, Info, Layers } from 'lucide-react';
 import { ScanResult } from '../types';
 import { VerdictBadge } from '../components/VerdictBadge';
 import { RiskGauge } from '../components/RiskGauge';
@@ -8,6 +8,7 @@ import { IntentGuardCard } from '../components/IntentGuardCard';
 import { PaymentTruthCard } from '../components/PaymentTruthCard';
 import { GeminiAdvisorCard } from '../components/GeminiAdvisorCard';
 import { RedirectChainCard } from '../components/RedirectChainCard';
+import { SafePreviewCard } from '../components/SafePreviewCard';
 
 export const ResultPage: React.FC = () => {
   const location = useLocation();
@@ -19,16 +20,18 @@ export const ResultPage: React.FC = () => {
 
   if (!result) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-16 text-center">
-        <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-white mb-2">No Active Scan Data</h2>
-        <p className="text-sm text-slate-400 mb-6">Please scan a QR code or submit a link to view risk results.</p>
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <AlertCircle className="w-10 h-10 text-amber-600 mx-auto mb-3" />
+        <h2 className="text-lg font-bold text-slate-900 mb-1">No Active Scan Data</h2>
+        <p className="text-xs text-slate-600 mb-6">
+          Please scan a QR code or submit a link to view risk results.
+        </p>
         <Link
           to="/"
-          className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-cyan-600 text-white font-medium text-sm"
+          className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
+          <span>Return Home</span>
         </Link>
       </div>
     );
@@ -63,20 +66,20 @@ export const ResultPage: React.FC = () => {
   const isUrlScan = result.inputType === 'URL' || result.inputType === 'QR_URL';
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 md:py-12">
+    <div className="max-w-3xl mx-auto px-4 py-8 md:py-10">
       {/* Top Navigation */}
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center space-x-2 text-xs font-mono text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center space-x-1.5 text-xs font-mono text-slate-600 hover:text-slate-900 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Scan Another</span>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Scanner</span>
         </button>
 
         <Link
           to={`/report?scanId=${result.scanId}`}
-          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-slate-300 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
+          className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-700 hover:text-slate-900 shadow-sm transition-colors"
         >
           <Flag className="w-3.5 h-3.5" />
           <span>Report Result</span>
@@ -85,49 +88,48 @@ export const ResultPage: React.FC = () => {
 
       {/* Main Verdict Card */}
       <div
-        className={`p-6 sm:p-8 rounded-3xl glass-card border shadow-2xl mb-6 transition-all ${
+        className={`p-6 sm:p-7 rounded-xl border shadow-sm mb-6 transition-all ${
           result.verdict === 'DANGER'
-            ? 'glow-border-danger bg-rose-950/15'
+            ? 'bg-red-50/70 border-red-200'
             : result.verdict === 'CAUTION'
-            ? 'glow-border-caution bg-amber-950/10'
-            : 'glow-border-safe bg-emerald-950/10'
+            ? 'bg-amber-50/60 border-amber-200'
+            : 'bg-emerald-50/50 border-emerald-200'
         }`}
       >
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 mb-6">
-          <RiskGauge score={result.riskScore} verdict={result.verdict} size={150} />
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-6">
+          <RiskGauge score={result.riskScore} verdict={result.verdict} size={120} />
 
           <div className="flex-1 text-center sm:text-left">
             <div className="mb-2">
               <VerdictBadge verdict={result.verdict} size="lg" />
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 leading-snug">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2 leading-snug">
               {result.explanation}
             </h2>
 
             {result.hostname && (
-              <div className="text-xs font-mono text-cyan-400 truncate mt-1">
+              <div className="text-xs font-mono text-slate-600 truncate mt-1">
                 Target: {result.hostname}
               </div>
             )}
           </div>
         </div>
 
-        {/* Detailed "Why?" Section (Section 27) */}
+        {/* Detailed "Why?" Evidence Section */}
         {result.why && result.why.length > 0 && (
-          <div className="pt-6 border-t border-slate-800/80">
-            <div className="flex items-center space-x-2 text-xs font-mono font-bold uppercase tracking-wider text-slate-400 mb-3">
-              <HelpCircle className="w-4 h-4 text-cyan-400" />
-              <span>Evidence & Why this verdict was given:</span>
+          <div className="pt-5 border-t border-slate-200/80">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700 mb-2.5">
+              Evidence Observed
             </div>
 
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {result.why.map((item, idx) => (
                 <li
                   key={idx}
-                  className="flex items-start space-x-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed"
+                  className="flex items-start space-x-2 text-xs sm:text-sm text-slate-700 leading-relaxed"
                 >
-                  <span className="text-cyan-400 mt-1">•</span>
+                  <span className="text-slate-400 mt-0.5">•</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -136,10 +138,44 @@ export const ResultPage: React.FC = () => {
         )}
       </div>
 
+      {/* Safe Preview Card (Sandboxed Destination vs Official Brand Reference) */}
+      {result.previewJobId && (
+        <div className="mb-6">
+          <SafePreviewCard
+            previewJobId={result.previewJobId}
+            targetUrl={result.finalUrl || result.url}
+            finalHostname={result.finalHostname || result.hostname}
+            onVisualMatch={(previewData) => {
+              if (previewData.visualImpersonation) {
+                setResult((prev) => {
+                  if (!prev) return prev;
+                  const newScore = Math.min(
+                    100,
+                    Math.max(prev.riskScore, (prev.riskScore || 0) + (previewData.riskBoost || 35))
+                  );
+                  const newVerdict = newScore >= 60 ? 'DANGER' : newScore >= 25 ? 'CAUTION' : 'SAFE';
+                  const whyItem = `Visual Impersonation: Page layout matches ${previewData.visualImpersonation?.brand} by ${previewData.visualImpersonation?.similarity}%.`;
+                  return {
+                    ...prev,
+                    riskScore: newScore,
+                    verdict: newVerdict,
+                    explanation: previewData.explanation || prev.explanation,
+                    why: prev.why.includes(whyItem) ? prev.why : [whyItem, ...prev.why],
+                  };
+                });
+              }
+            }}
+          />
+        </div>
+      )}
+
       {/* Specialized IntentGuard Details */}
       {isUrlScan && (
         <div className="mb-6 space-y-4">
-          <IntentGuardCard intentGuard={result.intentGuard} hostname={result.finalHostname || result.hostname} />
+          <IntentGuardCard
+            intentGuard={result.intentGuard}
+            hostname={result.finalHostname || result.hostname}
+          />
 
           {/* Gemini AI Threat Advisor */}
           {result.geminiAdvisor && (
@@ -154,22 +190,22 @@ export const ResultPage: React.FC = () => {
             isShortened={result.isShortened}
           />
 
-          {/* Metadata Simulator for Demo */}
+          {/* Demo Step 2 Simulator */}
           {result.verdict !== 'DANGER' && (
-            <div className="p-4 rounded-2xl glass-card border border-slate-800 flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="text-xs">
-                <span className="font-bold text-slate-200 block">Demo Step 2: Content Script Simulator</span>
-                <span className="text-slate-400">
-                  Simulate extension detecting password and OTP credential fields on this page.
+                <span className="font-semibold text-slate-900 block">Extension Content Script Simulator</span>
+                <span className="text-slate-600">
+                  Simulate browser content script reporting sensitive password and OTP fields on this page.
                 </span>
               </div>
               <button
                 type="button"
                 onClick={handleSimulatePageMetadata}
                 disabled={enriching}
-                className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-mono font-bold tracking-wider uppercase shrink-0 ml-4"
+                className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-medium shrink-0 transition-colors"
               >
-                {enriching ? 'Enriching...' : 'Detect Forms'}
+                {enriching ? 'Enriching...' : 'Detect Form Fields'}
               </button>
             </div>
           )}
@@ -183,25 +219,25 @@ export const ResultPage: React.FC = () => {
         </div>
       )}
 
-      {/* Detected Raw Signals Inspector */}
+      {/* Raw Threat Signals Inspector */}
       {result.signals && result.signals.length > 0 && (
-        <div className="p-5 rounded-2xl glass-card border border-slate-800">
-          <div className="flex items-center space-x-2 text-xs font-mono font-bold uppercase tracking-wider text-slate-400 mb-3">
-            <Layers className="w-4 h-4 text-slate-400" />
-            <span>Raw Threat Signals ({result.signals.length})</span>
+        <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
+          <div className="flex items-center space-x-1.5 text-xs font-mono font-bold uppercase tracking-wider text-slate-600 mb-3">
+            <Layers className="w-4 h-4 text-slate-500" />
+            <span>Underlying Threat Signals ({result.signals.length})</span>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {result.signals.map((sig, idx) => (
               <div
                 key={idx}
-                className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 flex items-center justify-between text-xs"
+                className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs"
               >
-                <div className="flex items-center space-x-2">
-                  <span className="font-mono text-cyan-400 font-semibold">{sig.code}</span>
-                  <span className="text-slate-400 truncate max-w-xs">{sig.message}</span>
+                <div className="flex items-center space-x-2 truncate mr-3">
+                  <span className="font-mono text-slate-900 font-semibold">{sig.code}</span>
+                  <span className="text-slate-600 truncate">{sig.message}</span>
                 </div>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">
+                <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-800 font-semibold shrink-0">
                   +{sig.scoreImpact} pts
                 </span>
               </div>

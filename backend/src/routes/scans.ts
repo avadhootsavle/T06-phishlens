@@ -16,6 +16,8 @@ import { analyzePaymentTruth } from '../pipeline/paymentTruth.js';
 import { calculateRisk } from '../engine/riskEngine.js';
 import { SignalInput } from '../engine/types.js';
 import { sanitizeUrlForStorage } from '../utils/sanitizeUrl.js';
+import { enqueuePreviewJob } from '../services/previewService.js';
+import { extractTokenFromContent, verifyQrPayload } from '../services/merchantQrService.js';
 
 export const scansRouter = Router();
 
@@ -222,8 +224,17 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
     include: { signals: true },
   });
 
+  // 7. Enqueue Non-Blocking Safe Preview Job (Runs sandboxed in background)
+  const previewJobId = enqueuePreviewJob({
+    url: finalUrl,
+    finalHostname,
+    scanId: scan.id,
+  });
+
   res.json({
     scanId: scan.id,
+    previewJobId,
+    previewUrl: `/api/v1/preview/${previewJobId}`,
     inputType: 'URL',
     verdict: scan.verdict,
     riskScore: scan.riskScore,
@@ -403,7 +414,88 @@ scansRouter.post('/scans/qr', async (req, res): Promise<void> => {
 
   const { qrContent, expectedIntent, expectedMerchantName } = parseResult.data;
 
-  // Check if content is UPI QR
+  // 1. Check if content encodes a PhishLens Verified Merchant Token (Cryptographic Sticker)
+  const merchantToken = extractTokenFromContent(qrContent);
+  if (merchantToken) {
+    const qrVerification = await verifyQrPayload({
+      content: qrContent,
+      expectedShopName: expectedMerchantName,
+    });
+
+    const vpa = qrVerification.vpa || 'merchant@upi';
+    const shopName = qrVerification.shopName || qrVerification.registeredShopName || 'Verified Merchant';
+
+    const syntheticUpi = {
+      isUPI: true,
+      rawUPI: qrVerification.upiUri || `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(shopName)}&cu=INR`,
+      upiId: vpa,
+      payeeName: shopName,
+      amount: undefined,
+      currency: 'INR',
+    };
+
+    const paymentTruth = await analyzePaymentTruth(
+      syntheticUpi,
+      expectedIntent,
+      expectedMerchantName,
+      {
+        status: qrVerification.status,
+        shopName,
+        vpa,
+        city: qrVerification.city,
+        expectedShopName: qrVerification.expectedShopName,
+        registeredShopName: qrVerification.registeredShopName,
+        message: qrVerification.message,
+      }
+    );
+
+    const engineResult = calculateRisk(paymentTruth.signals);
+
+    const scan = await prisma.scan.create({
+      data: {
+        inputType: InputType.QR_UPI,
+        verdict: engineResult.verdict,
+        riskScore: engineResult.riskScore,
+        explanation: engineResult.explanation,
+        rawInput: sanitizeUrlForStorage(qrContent),
+        signals: {
+          create: engineResult.signals.map((s) => ({
+            code: s.code,
+            severity: s.severity,
+            scoreImpact: s.scoreImpact,
+            metadata: s.metadata ? (s.metadata as Prisma.InputJsonValue) : Prisma.JsonNull,
+          })),
+        },
+      },
+    });
+
+    res.json({
+      scanId: scan.id,
+      inputType: 'QR_UPI',
+      verdict: scan.verdict,
+      riskScore: scan.riskScore,
+      explanation: scan.explanation,
+      why: engineResult.why,
+      signals: engineResult.signals,
+      paymentTruth: {
+        isUPI: true,
+        upiId: vpa,
+        payeeName: shopName,
+        amount: null,
+        currency: 'INR',
+        actionDescription: paymentTruth.actionDescription,
+        expectedAction: expectedIntent,
+        intentMismatch: paymentTruth.intentMismatch,
+        merchantMatchStatus: paymentTruth.merchantMatchStatus,
+        merchantVerification: paymentTruth.merchantVerification,
+        expectedMerchant: expectedMerchantName,
+      },
+      createdAt: scan.createdAt.toISOString(),
+    });
+    return;
+  }
+
+  // 2. Check if content is standard UPI QR
   const upiParsed = parseUPIString(qrContent);
 
   if (upiParsed.isUPI) {
@@ -422,7 +514,7 @@ scansRouter.post('/scans/qr', async (req, res): Promise<void> => {
         verdict: engineResult.verdict,
         riskScore: engineResult.riskScore,
         explanation: engineResult.explanation,
-        rawInput: qrContent,
+        rawInput: sanitizeUrlForStorage(qrContent),
         signals: {
           create: engineResult.signals.map((s) => ({
             code: s.code,
@@ -452,6 +544,7 @@ scansRouter.post('/scans/qr', async (req, res): Promise<void> => {
         expectedAction: expectedIntent,
         intentMismatch: paymentTruth.intentMismatch,
         merchantMatchStatus: paymentTruth.merchantMatchStatus,
+        merchantVerification: paymentTruth.merchantVerification,
         expectedMerchant: expectedMerchantName,
       },
       createdAt: scan.createdAt.toISOString(),
@@ -522,8 +615,16 @@ scansRouter.post('/scans/qr', async (req, res): Promise<void> => {
       },
     });
 
+    const previewJobId = enqueuePreviewJob({
+      url: redirectInfo.finalUrl,
+      finalHostname,
+      scanId: scan.id,
+    });
+
     res.json({
       scanId: scan.id,
+      previewJobId,
+      previewUrl: `/api/v1/preview/${previewJobId}`,
       inputType: 'QR_URL',
       verdict: scan.verdict,
       riskScore: scan.riskScore,

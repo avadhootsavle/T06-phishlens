@@ -18,6 +18,35 @@ export interface IntentGuardInfo {
   lookalikeMatch?: string | null;
 }
 
+export interface MerchantVerificationSummary {
+  status:
+    | 'VERIFIED'
+    | 'VERIFIED_REGISTRY'
+    | 'TAMPERED'
+    | 'MISMATCH'
+    | 'EXPIRED'
+    | 'REVOKED'
+    | 'UNVERIFIED'
+    | 'NOT_APPLICABLE';
+  shopName?: string;
+  vpa?: string;
+  city?: string | null;
+  expectedShopName?: string;
+  registeredShopName?: string;
+  message?: string;
+}
+
+export interface MerchantRecord {
+  id: string;
+  shopName: string;
+  vpa: string;
+  city?: string | null;
+  status: 'ACTIVE' | 'REVOKED';
+  createdAt: string;
+  revokedAt?: string | null;
+  stickerUrl?: string;
+}
+
 export interface PaymentTruthInfo {
   isUPI: boolean;
   upiId?: string;
@@ -28,6 +57,7 @@ export interface PaymentTruthInfo {
   expectedAction?: string;
   intentMismatch: boolean;
   merchantMatchStatus?: 'MATCH' | 'MISMATCH' | 'UNREGISTERED' | 'NOT_APPLICABLE';
+  merchantVerification?: MerchantVerificationSummary;
   expectedMerchant?: string;
 }
 
@@ -66,7 +96,28 @@ export interface ScanResult {
   intentGuard?: IntentGuardInfo;
   paymentTruth?: PaymentTruthInfo;
   geminiAdvisor?: GeminiThreatAdvisor;
+  previewJobId?: string;
+  previewUrl?: string;
   createdAt: string;
+}
+
+export interface PreviewJobData {
+  jobId: string;
+  scanId?: string;
+  status: 'pending' | 'ready' | 'failed';
+  error?: string;
+  imageUrl?: string;
+  brandRefImageUrl?: string;
+  visualImpersonation?: {
+    brand: string;
+    similarity: number;
+    brandKey?: string;
+  };
+  brand?: string;
+  similarity?: number;
+  officialDomain?: string;
+  riskBoost?: number;
+  explanation?: string;
 }
 
 export type PaymentIntent = 'PAY_MERCHANT' | 'RECEIVE_MONEY' | 'NOT_SURE';

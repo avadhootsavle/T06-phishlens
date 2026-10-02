@@ -2,6 +2,7 @@ import { SignalSeverity } from '@prisma/client';
 import { prisma } from '../db/client.js';
 import { SignalInput } from '../engine/types.js';
 import { parse } from 'tldts';
+import { domainToUnicode } from 'node:url';
 
 // Common Latin lookalikes in Cyrillic, Greek, etc.
 const CONFUSABLE_MAP: Record<string, string> = {
@@ -84,8 +85,9 @@ export interface LookalikeCheckResult {
 
 export async function checkLookalikeAndHomoglyphs(hostname: string): Promise<LookalikeCheckResult> {
   const normalizedHost = hostname.toLowerCase();
-  const parsed = parse(normalizedHost);
-  const candidateDomain = parsed.domain || normalizedHost;
+  const unicodeHost = domainToUnicode(normalizedHost);
+  const parsed = parse(unicodeHost);
+  const candidateDomain = parsed.domain || unicodeHost;
   const candidateSLD = (parsed.domainWithoutSuffix || candidateDomain.split('.')[0]).toLowerCase();
 
   // 1. Fetch all protected brands and their official domains

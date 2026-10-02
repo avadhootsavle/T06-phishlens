@@ -9,12 +9,14 @@ import { ReportPage } from './pages/ReportPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { About } from './pages/About';
 import { MerchantVerifyRedirect } from './pages/MerchantVerifyRedirect';
+import { InstallPrompt } from './components/InstallPrompt';
 
 export const App: React.FC = () => {
   return (
     <Router>
       <div className="min-h-screen bg-[#f8f9fa] text-slate-900 flex flex-col font-sans selection:bg-slate-200">
         <Navbar />
+        <InstallPrompt />
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home />} />

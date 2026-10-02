@@ -81,6 +81,16 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
   const initialHostname = new URL(rawUrl).hostname.toLowerCase();
   const finalHostname = redirectInfo.finalHostname;
 
+  if (redirectInfo.isShortened) {
+    collectedSignals.push({
+      code: 'URL_SHORTENER_DETECTED',
+      severity: SignalSeverity.LOW,
+      scoreImpact: 5,
+      message: `Shortened URL detected (${initialHostname}). Destination unmasked to '${finalHostname}'.`,
+      metadata: { shortener: initialHostname, finalHostname, redirectCount: redirectInfo.redirectCount },
+    });
+  }
+
   if (redirectInfo.redirectCount >= 3 || redirectInfo.crossDomainCount > 1) {
     collectedSignals.push({
       code: 'EXCESSIVE_REDIRECTS',
@@ -123,6 +133,9 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
     analyzeThreatWithGemini({
       url: finalUrl,
       hostname: finalHostname,
+      initialUrl: rawUrl !== finalUrl ? rawUrl : undefined,
+      isShortened: redirectInfo.isShortened,
+      redirectChain: redirectInfo.chain.map((h) => `${h.hostname} [${h.statusCode}]`),
       redirectCount: redirectInfo.redirectCount,
       suspiciousKeywords: heuristics.suspiciousKeywordsFound,
     }),
@@ -148,10 +161,15 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
     !geminiAnalysis.isLegitimateDomain &&
     !lookalikeResult.isOfficialDomain
   ) {
+    const impersonationScore =
+      geminiAnalysis.threatLevel === 'MALICIOUS' || geminiAnalysis.impersonationConfidence >= 80
+        ? Math.max(50, geminiAnalysis.additionalRiskPoints || 50)
+        : Math.max(35, geminiAnalysis.additionalRiskPoints || 35);
+
     collectedSignals.push({
       code: 'GEMINI_IMPERSONATION_DETECTED',
       severity: SignalSeverity.HIGH,
-      scoreImpact: Math.min(35, geminiAnalysis.additionalRiskPoints || 25),
+      scoreImpact: Math.min(60, impersonationScore),
       message: `Gemini AI identified impersonation of '${geminiAnalysis.apparentBrand}'. Official domain: '${geminiAnalysis.legitimateOfficialDomain || 'unverified'}'.`,
       metadata: {
         brand: geminiAnalysis.apparentBrand,
@@ -214,14 +232,16 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
     hostname: initialHostname,
     finalHostname,
     url: rawUrl,
+    finalUrl,
+    isShortened: redirectInfo.isShortened,
     redirects: redirectInfo.chain,
     signals: engineResult.signals,
     intentGuard: {
-      claimedBrand: lookalikeResult.matchedBrandName,
-      isOfficialDomain: lookalikeResult.isOfficialDomain,
+      claimedBrand: lookalikeResult.matchedBrandName || geminiAnalysis?.apparentBrand || undefined,
+      isOfficialDomain: lookalikeResult.isOfficialDomain || (geminiAnalysis?.isLegitimateDomain ?? false),
       domainAgeDays: rdapResult.ageDays,
       hasCredentialTrap: false,
-      lookalikeMatch: lookalikeResult.matchedOfficialDomain,
+      lookalikeMatch: lookalikeResult.matchedOfficialDomain || geminiAnalysis?.legitimateOfficialDomain || undefined,
     },
     geminiAdvisor: geminiAnalysis || undefined,
     createdAt: scan.createdAt.toISOString(),
@@ -292,10 +312,15 @@ scansRouter.post('/scans/:scanId/page-metadata', async (req, res): Promise<void>
     !geminiAnalysis.isLegitimateDomain &&
     !lookalikeResult.isOfficialDomain
   ) {
+    const impersonationScore =
+      geminiAnalysis.threatLevel === 'MALICIOUS' || geminiAnalysis.impersonationConfidence >= 80
+        ? Math.max(50, geminiAnalysis.additionalRiskPoints || 50)
+        : Math.max(35, geminiAnalysis.additionalRiskPoints || 35);
+
     intentGuardResult.signals.push({
       code: 'GEMINI_IMPERSONATION_DETECTED',
       severity: SignalSeverity.HIGH,
-      scoreImpact: Math.min(35, geminiAnalysis.additionalRiskPoints || 25),
+      scoreImpact: Math.min(60, impersonationScore),
       message: `Gemini AI identified impersonation of '${geminiAnalysis.apparentBrand}'. Official domain: '${geminiAnalysis.legitimateOfficialDomain || 'unverified'}'.`,
       metadata: {
         brand: geminiAnalysis.apparentBrand,
@@ -355,9 +380,10 @@ scansRouter.post('/scans/:scanId/page-metadata', async (req, res): Promise<void>
     finalHostname: scan.finalHostname,
     signals: engineResult.signals,
     intentGuard: {
-      claimedBrand: intentGuardResult.claimedBrand || lookalikeResult.matchedBrandName,
-      isOfficialDomain: lookalikeResult.isOfficialDomain,
+      claimedBrand: intentGuardResult.claimedBrand || lookalikeResult.matchedBrandName || geminiAnalysis?.apparentBrand || undefined,
+      isOfficialDomain: lookalikeResult.isOfficialDomain || (geminiAnalysis?.isLegitimateDomain ?? false),
       hasCredentialTrap: intentGuardResult.hasCredentialTrap,
+      lookalikeMatch: lookalikeResult.matchedOfficialDomain || geminiAnalysis?.legitimateOfficialDomain || undefined,
     },
     geminiAdvisor: geminiAnalysis || undefined,
     createdAt: updatedScan.createdAt.toISOString(),

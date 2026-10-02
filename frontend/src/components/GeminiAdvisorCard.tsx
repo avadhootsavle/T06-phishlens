@@ -32,7 +32,7 @@ export const GeminiAdvisorCard: React.FC<GeminiAdvisorCardProps> = ({ advisor })
                 Gemini AI Threat Advisor
               </h3>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
-                2.5 Flash
+                3.8 Flash
               </span>
             </div>
             <p className="text-xs text-slate-400">Universal semantic reasoning & deceptive tactic detection</p>

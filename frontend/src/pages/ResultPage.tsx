@@ -7,6 +7,7 @@ import { RiskGauge } from '../components/RiskGauge';
 import { IntentGuardCard } from '../components/IntentGuardCard';
 import { PaymentTruthCard } from '../components/PaymentTruthCard';
 import { GeminiAdvisorCard } from '../components/GeminiAdvisorCard';
+import { RedirectChainCard } from '../components/RedirectChainCard';
 
 export const ResultPage: React.FC = () => {
   const location = useLocation();
@@ -144,6 +145,14 @@ export const ResultPage: React.FC = () => {
           {result.geminiAdvisor && (
             <GeminiAdvisorCard advisor={result.geminiAdvisor} />
           )}
+
+          {/* Redirect Chain & Shortener Expansion */}
+          <RedirectChainCard
+            redirects={result.redirects}
+            initialUrl={result.url}
+            finalUrl={result.finalUrl}
+            isShortened={result.isShortened}
+          />
 
           {/* Metadata Simulator for Demo */}
           {result.verdict !== 'DANGER' && (

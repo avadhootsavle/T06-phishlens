@@ -31,6 +31,9 @@ export interface GeminiAnalysisContext {
   hasOtpField?: boolean;
   domainAgeDays?: number | null;
   redirectCount?: number;
+  initialUrl?: string;
+  isShortened?: boolean;
+  redirectChain?: string[];
   suspiciousKeywords?: string[];
 }
 
@@ -51,14 +54,17 @@ export async function analyzeThreatWithGemini(
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
     const prompt = `
 You are PhishLens AI, a world-class cybersecurity and threat intelligence reasoning model.
 Analyze this destination link and page metadata for phishing, brand impersonation, credential harvesting, or deceptive social engineering:
 
-URL: ${ctx.url}
-Hostname: ${ctx.hostname}
+URL (Final Destination): ${ctx.url}
+Hostname (Final Destination): ${ctx.hostname}
+${ctx.initialUrl && ctx.initialUrl !== ctx.url ? `Initial Link Provided by User: ${ctx.initialUrl}` : ''}
+${ctx.isShortened ? `URL Shortener Obfuscation: YES (original link was compressed/masked with a known shortener)` : ''}
+${ctx.redirectChain && ctx.redirectChain.length > 1 ? `Redirect Chain: ${ctx.redirectChain.join(' ➔ ')}` : ''}
 Page Title: ${ctx.title || 'N/A'}
 Page Headings: ${ctx.headings?.join(' | ') || 'N/A'}
 Form Inputs Detected: ${ctx.inputFieldNames?.join(', ') || 'N/A'}
@@ -71,9 +77,10 @@ Suspicious Keywords in URL: ${ctx.suspiciousKeywords?.join(', ') || 'None'}
 Reason carefully:
 1. What organization, brand, or service does this page claim, resemble, or impersonate (globally, e.g. banks, tech companies, delivery, government)? If none, set apparentBrand to null.
 2. Is this exact domain the authentic, legitimate primary domain for that organization?
-3. Are there social engineering manipulation tactics present (e.g. artificial urgency, account closure panic, prize lure, fake verification)?
-4. Assess threat level ('SAFE', 'SUSPICIOUS', or 'MALICIOUS') and recommend risk score impact (0 for safe, 10-25 for suspicious, 30-40 for malicious).
-5. Provide a 1-sentence plain English explanation and 1-sentence actionable user advice.
+3. If a URL shortener or multi-hop redirect chain was used to disguise the final destination, evaluate that obfuscation tactic.
+4. Are there social engineering manipulation tactics present (e.g. artificial urgency, account closure panic, prize lure, fake verification)?
+5. Assess threat level ('SAFE', 'SUSPICIOUS', or 'MALICIOUS') and recommend risk score impact (0 for safe, 10-25 for suspicious, 30-40 for malicious).
+6. Provide a 1-sentence plain English explanation and 1-sentence actionable user advice.
 `;
 
     const apiCallPromise = ai.models.generateContent({
@@ -113,23 +120,25 @@ Reason carefully:
       },
     });
 
-    // 2.5 second timeout safeguard
+    // 7 second timeout safeguard
     const timeoutPromise = new Promise<null>((_, reject) =>
-      setTimeout(() => reject(new Error('Gemini API timeout')), 2500)
+      setTimeout(() => reject(new Error('Gemini API timeout (7s)')), 7000)
     );
 
     const response = (await Promise.race([apiCallPromise, timeoutPromise])) as {
-      text: string;
+      text?: string | (() => string);
     };
 
-    if (!response || !response.text) return null;
+    const textContent = typeof response?.text === 'function' ? response.text() : response?.text;
 
-    const parsed: GeminiThreatAnalysis = JSON.parse(response.text);
+    if (!textContent) return null;
+
+    const parsed: GeminiThreatAnalysis = JSON.parse(textContent);
 
     geminiCache.set(cacheKey, { analysis: parsed, timestamp: Date.now() });
     return parsed;
   } catch (err: unknown) {
-    // If Gemini fails or times out, never block the scan; degrade gracefully
+    console.error('Gemini threat analysis error:', (err as Error).message);
     return null;
   }
 }

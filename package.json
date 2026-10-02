@@ -1,0 +1,13 @@
+{
+  "name": "phishlens-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PhishLens — Intent-Aware Cybersecurity Layer",
+  "scripts": {
+    "start": "./start_all.sh",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:extension": "npm --prefix chrome_extension run build",
+    "test": "npm --prefix backend test"
+  }
+}

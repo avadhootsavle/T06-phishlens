@@ -83,6 +83,34 @@ async function main() {
       keywords: ['india post', 'indiapost', 'speed post tracking'],
       domains: ['indiapost.gov.in', 'ippbonline.com'],
     },
+    {
+      name: 'Amazon',
+      normalizedName: 'amazon',
+      category: 'E-Commerce',
+      keywords: ['amazon', 'amazon prime', 'amazon pay', 'aws'],
+      domains: ['amazon.com', 'amazon.in'],
+    },
+    {
+      name: 'Flipkart',
+      normalizedName: 'flipkart',
+      category: 'E-Commerce',
+      keywords: ['flipkart', 'supercoins'],
+      domains: ['flipkart.com'],
+    },
+    {
+      name: 'Netflix',
+      normalizedName: 'netflix',
+      category: 'Entertainment',
+      keywords: ['netflix'],
+      domains: ['netflix.com'],
+    },
+    {
+      name: 'Apple',
+      normalizedName: 'apple',
+      category: 'Technology',
+      keywords: ['apple', 'icloud', 'apple id'],
+      domains: ['apple.com', 'icloud.com'],
+    },
   ];
 
   for (const b of brands) {

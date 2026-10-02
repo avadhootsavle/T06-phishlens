@@ -43,6 +43,12 @@ export interface GeminiThreatAdvisor {
   additionalRiskPoints: number;
 }
 
+export interface RedirectHop {
+  url: string;
+  statusCode: number;
+  hostname: string;
+}
+
 export interface ScanResult {
   scanId: string;
   inputType: 'URL' | 'QR_URL' | 'QR_UPI' | 'UNKNOWN';
@@ -53,6 +59,9 @@ export interface ScanResult {
   hostname?: string;
   finalHostname?: string;
   url?: string;
+  finalUrl?: string;
+  isShortened?: boolean;
+  redirects?: RedirectHop[];
   signals: ScanSignal[];
   intentGuard?: IntentGuardInfo;
   paymentTruth?: PaymentTruthInfo;

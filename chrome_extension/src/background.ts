@@ -3,6 +3,8 @@ const API_BASE = 'http://localhost:5001/api/v1';
 interface TabScanState {
   scanId: string;
   url: string;
+  finalUrl?: string;
+  isShortened?: boolean;
   verdict: 'SAFE' | 'CAUTION' | 'DANGER';
   riskScore: number;
   explanation: string;
@@ -11,6 +13,7 @@ interface TabScanState {
     claimedBrand?: string;
     isOfficialDomain: boolean;
     hasCredentialTrap: boolean;
+    lookalikeMatch?: string;
   };
   geminiAdvisor?: {
     apparentBrand?: string | null;
@@ -27,8 +30,13 @@ interface TabScanState {
 function setupContextMenu() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
-      id: 'phishlens_scan_link',
-      title: '🛡️ Scan link with PhishLens',
+      id: 'phishlens_go_to_final_url',
+      title: '🚀 Go to Final URL & Scan with PhishLens',
+      contexts: ['link', 'selection'],
+    });
+    chrome.contextMenus.create({
+      id: 'phishlens_preview_link',
+      title: '🛡️ Preview Link Safety in HUD',
       contexts: ['link', 'selection'],
     });
   });
@@ -39,7 +47,10 @@ chrome.runtime.onStartup.addListener(setupContextMenu);
 
 // 2. Handle Right-Click Context Menu Click
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'phishlens_scan_link' && tab?.id) {
+  const isGoToFinal = info.menuItemId === 'phishlens_go_to_final_url' || info.menuItemId === 'phishlens_scan_link';
+  const isPreview = info.menuItemId === 'phishlens_preview_link';
+
+  if ((isGoToFinal || isPreview) && tab?.id) {
     const targetUrl = info.linkUrl || info.selectionText;
     if (!targetUrl) return;
 
@@ -48,6 +59,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       await chrome.tabs.sendMessage(tab.id, {
         type: 'PHISHLENS_SHOW_OVERLAY_LOADING',
         url: targetUrl,
+        message: isGoToFinal ? 'Unmasking redirects & opening final destination...' : 'Inspecting destination...',
       });
     } catch {
       // Content script may not be injected yet in pre-existing tabs
@@ -59,6 +71,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         await chrome.tabs.sendMessage(tab.id, {
           type: 'PHISHLENS_SHOW_OVERLAY_LOADING',
           url: targetUrl,
+          message: isGoToFinal ? 'Unmasking redirects & opening final destination...' : 'Inspecting destination...',
         });
       } catch (err) {
         console.error('Failed to communicate with content script:', err);
@@ -66,6 +79,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
 
     try {
+      // Query backend: follows redirects up to 5 hops, SSRF protection, unmasks shorteners
       const response = await fetch(`${API_BASE}/scans/url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,13 +90,31 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         throw new Error(`HTTP ${response.status} from backend scanner`);
       }
 
-      const scanResult = await response.json();
+      const scanResult: TabScanState = await response.json();
+      const destinationUrl = scanResult.finalUrl || scanResult.url || targetUrl;
 
-      // Display floating HUD overlay in the active tab
-      await chrome.tabs.sendMessage(tab.id, {
-        type: 'PHISHLENS_SHOW_OVERLAY_RESULT',
-        result: scanResult,
-      });
+      if (isGoToFinal) {
+        // Open the final unmasked URL in a new tab
+        const newTab = await chrome.tabs.create({
+          url: destinationUrl,
+          active: true,
+        });
+
+        if (newTab.id) {
+          // Pre-store scan result and set auto_inspect flag so HUD opens on the final destination page
+          await chrome.storage.local.set({
+            [`tab_${newTab.id}`]: scanResult,
+            [`auto_inspect_${newTab.id}`]: scanResult,
+          });
+          updateBadge(newTab.id, scanResult.verdict);
+        }
+      } else {
+        // Stay on page and display floating HUD preview
+        await chrome.tabs.sendMessage(tab.id, {
+          type: 'PHISHLENS_SHOW_OVERLAY_RESULT',
+          result: scanResult,
+        });
+      }
     } catch (err) {
       await chrome.tabs.sendMessage(tab.id, {
         type: 'PHISHLENS_SHOW_OVERLAY_ERROR',
@@ -121,8 +153,23 @@ chrome.webNavigation.onCommitted.addListener(async (details) => {
   }
 });
 
-// 4. Listen for safe page metadata from content script
+// 4. Listen for runtime messages (Metadata enrichment & Auto-Inspect checks)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'CHECK_AUTO_INSPECT' && sender.tab?.id) {
+    const tabId = sender.tab.id;
+    chrome.storage.local.get([`auto_inspect_${tabId}`, `tab_${tabId}`]).then((stored) => {
+      const pendingInspect = stored[`auto_inspect_${tabId}`] || stored[`tab_${tabId}`];
+      if (pendingInspect) {
+        // Clean up one-time auto_inspect trigger
+        chrome.storage.local.remove(`auto_inspect_${tabId}`);
+        sendResponse({ shouldInspect: true, scanResult: pendingInspect });
+      } else {
+        sendResponse({ shouldInspect: false });
+      }
+    });
+    return true; // Keep message channel open for async response
+  }
+
   if (message.type === 'PAGE_METADATA_EXTRACTED' && sender.tab?.id) {
     const tabId = sender.tab.id;
 
@@ -146,6 +193,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const updatedData: TabScanState = await enrichResponse.json();
           await chrome.storage.local.set({ [`tab_${tabId}`]: updatedData });
           updateBadge(tabId, updatedData.verdict);
+
+          // Update HUD overlay on the final page with live DOM analysis
+          try {
+            await chrome.tabs.sendMessage(tabId, {
+              type: 'PHISHLENS_SHOW_OVERLAY_RESULT',
+              result: updatedData,
+            });
+          } catch {
+            // Tab may not have listener attached yet
+          }
+
           sendResponse({ success: true, verdict: updatedData.verdict });
         }
       } catch (e) {

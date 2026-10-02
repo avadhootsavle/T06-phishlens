@@ -183,7 +183,7 @@
     root.querySelector('#btn-dismiss')?.addEventListener('click', dismissOverlay);
   }
 
-  function showLoadingOverlay(url: string) {
+  function showLoadingOverlay(url: string, message?: string) {
     if (autoDismissTimer) clearTimeout(autoDismissTimer);
     renderOverlay(`
       <div class="header">
@@ -199,7 +199,9 @@
       <div class="url-box">${escapeHtml(url)}</div>
       <div style="text-align: center; padding: 18px 0;">
         <div class="spinner"></div>
-        <div style="font-size: 12px; font-weight: 600; color: #fff; margin-bottom: 4px;">Inspecting Destination...</div>
+        <div style="font-size: 12px; font-weight: 600; color: #fff; margin-bottom: 4px;">
+          ${escapeHtml(message || 'Inspecting Destination...')}
+        </div>
         <div style="font-size: 10px; color: #94a3b8;">Analyzing redirect hops, domain age, typosquatting & Gemini AI...</div>
       </div>
     `);
@@ -303,8 +305,13 @@
       </div>
 
       <div class="url-box" title="${escapeHtml(result.finalUrl || result.url)}">
-        ${result.isShortened ? '<span style="color:#fbbf24; font-weight:bold;">[SHORTENER UNMASKED] ➔ </span>' : ''}
-        ${escapeHtml(result.finalUrl || result.url)}
+        ${result.isShortened ? '<div style="color: #fbbf24; font-weight: bold; margin-bottom: 2px;">⚡ Shortened URL Unmasked</div>' : ''}
+        ${result.finalUrl && result.finalUrl !== result.url ? `
+          <div style="font-size: 9px; color: #94a3b8; margin-bottom: 3px;">Initial link: ${escapeHtml(result.url)}</div>
+          <div style="font-size: 11px; font-weight: bold; color: #38bdf8;">Final Destination: ${escapeHtml(result.finalUrl)}</div>
+        ` : `
+          <div>${escapeHtml(result.url)}</div>
+        `}
       </div>
 
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 10px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 12px; border: 1px solid ${verdictColor}40;">
@@ -321,9 +328,15 @@
       ${whyListHtml}
 
       <div class="footer-actions">
-        <a href="http://localhost:3000" target="_blank" class="btn btn-primary">
-          Open Full PWA
-        </a>
+        ${result.finalUrl && result.finalUrl !== window.location.href ? `
+          <a href="${escapeHtml(result.finalUrl)}" target="_blank" class="btn btn-primary" style="background: linear-gradient(135deg, #059669, #0284c7); text-decoration: none;">
+            🚀 Go to Final URL
+          </a>
+        ` : `
+          <a href="http://localhost:3000" target="_blank" class="btn btn-primary">
+            Open Full PWA
+          </a>
+        `}
         <button id="btn-dismiss" class="btn btn-secondary">
           Dismiss
         </button>
@@ -364,10 +377,22 @@
       .replace(/'/g, '&#039;');
   }
 
-  // Listen for messages from background script
+  // 1. Check if this tab was opened from context menu to inspect
+  try {
+    chrome.runtime.sendMessage({ type: 'CHECK_AUTO_INSPECT' }, (response) => {
+      if (chrome.runtime.lastError) return;
+      if (response && response.shouldInspect && response.scanResult) {
+        showResultOverlay(response.scanResult);
+      }
+    });
+  } catch {
+    // Ignore
+  }
+
+  // 2. Listen for messages from background script
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'PHISHLENS_SHOW_OVERLAY_LOADING') {
-      showLoadingOverlay(message.url);
+      showLoadingOverlay(message.url, message.message);
     } else if (message.type === 'PHISHLENS_SHOW_OVERLAY_RESULT') {
       showResultOverlay(message.result);
     } else if (message.type === 'PHISHLENS_SHOW_OVERLAY_ERROR') {

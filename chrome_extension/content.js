@@ -1,4 +1,4 @@
-(()=>{function E(){const e=document.title||"",o=[];document.querySelectorAll("h1, h2").forEach(a=>{var c;const s=(c=a.textContent)==null?void 0:c.trim();s&&s.length<100&&o.push(s)});const d=[];document.querySelectorAll("img").forEach(a=>{var u,x,i;const s=(u=a.getAttribute("alt"))==null?void 0:u.trim(),c=((x=a.className)==null?void 0:x.toLowerCase())||"",y=((i=a.id)==null?void 0:i.toLowerCase())||"";s&&(c.includes("logo")||y.includes("logo")||s.toLowerCase().includes("logo"))&&d.push(s)});let l=!1,p=!1,b=!1,f=!1,g=!1,w=!1;document.querySelectorAll("input, select, textarea").forEach(a=>{const s=(a.getAttribute("type")||"").toLowerCase(),c=(a.getAttribute("name")||"").toLowerCase(),y=(a.getAttribute("id")||"").toLowerCase(),u=(a.getAttribute("placeholder")||"").toLowerCase(),x=(a.getAttribute("aria-label")||"").toLowerCase(),i=`${c} ${y} ${u} ${x}`;(s==="password"||i.includes("password")||i.includes("pwd"))&&(l=!0),(i.includes("otp")||i.includes("one time password")||i.includes("verification code")||i.includes("2fa"))&&(p=!0),(i.includes("cvv")||i.includes("cvc")||i.includes("security code"))&&(b=!0),(i.includes("card")||i.includes("pan number")||i.includes("debit"))&&(f=!0),(i.includes("kyc")||i.includes("aadhaar")||i.includes("pan card"))&&(g=!0),(i.includes("upi pin")||i.includes("mpin"))&&(w=!0)});const A=document.querySelector("link[rel*='icon']"),z=A?A.href:void 0;return{url:window.location.href,title:e,headings:o.slice(0,5),logoAltText:d.slice(0,3),hasPasswordField:l,hasOtpField:p,hasCvvField:b,hasCardField:f,hasKycField:g,hasUpiPinField:w,faviconUrl:z}}try{const e=E();chrome.runtime.sendMessage({type:"PAGE_METADATA_EXTRACTED",payload:e})}catch{}let t=null,m=null,r=null;function k(){return(!t||!document.contains(t))&&(t=document.createElement("div"),t.id="phishlens-inspector-host",t.style.position="fixed",t.style.top="20px",t.style.right="20px",t.style.zIndex="2147483647",t.style.pointerEvents="none",m=t.attachShadow({mode:"open"}),document.body.appendChild(t)),m}function v(){r&&(clearTimeout(r),r=null),t&&(t.remove(),t=null,m=null)}function h(e){var d,l;const o=k();o.innerHTML=`
+(()=>{function $(){const e=document.title||"",o=[];document.querySelectorAll("h1, h2").forEach(a=>{var c;const s=(c=a.textContent)==null?void 0:c.trim();s&&s.length<100&&o.push(s)});const l=[];document.querySelectorAll("img").forEach(a=>{var u,m,i;const s=(u=a.getAttribute("alt"))==null?void 0:u.trim(),c=((m=a.className)==null?void 0:m.toLowerCase())||"",y=((i=a.id)==null?void 0:i.toLowerCase())||"";s&&(c.includes("logo")||y.includes("logo")||s.toLowerCase().includes("logo"))&&l.push(s)});let d=!1,p=!1,b=!1,f=!1,g=!1,A=!1;document.querySelectorAll("input, select, textarea").forEach(a=>{const s=(a.getAttribute("type")||"").toLowerCase(),c=(a.getAttribute("name")||"").toLowerCase(),y=(a.getAttribute("id")||"").toLowerCase(),u=(a.getAttribute("placeholder")||"").toLowerCase(),m=(a.getAttribute("aria-label")||"").toLowerCase(),i=`${c} ${y} ${u} ${m}`;(s==="password"||i.includes("password")||i.includes("pwd"))&&(d=!0),(i.includes("otp")||i.includes("one time password")||i.includes("verification code")||i.includes("2fa"))&&(p=!0),(i.includes("cvv")||i.includes("cvc")||i.includes("security code"))&&(b=!0),(i.includes("card")||i.includes("pan number")||i.includes("debit"))&&(f=!0),(i.includes("kyc")||i.includes("aadhaar")||i.includes("pan card"))&&(g=!0),(i.includes("upi pin")||i.includes("mpin"))&&(A=!0)});const E=document.querySelector("link[rel*='icon']"),z=E?E.href:void 0;return{url:window.location.href,title:e,headings:o.slice(0,5),logoAltText:l.slice(0,3),hasPasswordField:d,hasOtpField:p,hasCvvField:b,hasCardField:f,hasKycField:g,hasUpiPinField:A,faviconUrl:z}}try{const e=$();chrome.runtime.sendMessage({type:"PAGE_METADATA_EXTRACTED",payload:e})}catch{}let n=null,x=null,r=null;function k(){return(!n||!document.contains(n))&&(n=document.createElement("div"),n.id="phishlens-inspector-host",n.style.position="fixed",n.style.top="20px",n.style.right="20px",n.style.zIndex="2147483647",n.style.pointerEvents="none",x=n.attachShadow({mode:"open"}),document.body.appendChild(n)),x}function v(){r&&(clearTimeout(r),r=null),n&&(n.remove(),n=null,x=null)}function h(e){var l,d;const o=k();o.innerHTML=`
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         .hud-card {
@@ -49,7 +49,7 @@
       <div class="hud-card">
         ${e}
       </div>
-    `,(d=o.querySelector(".close-btn"))==null||d.addEventListener("click",v),(l=o.querySelector("#btn-dismiss"))==null||l.addEventListener("click",v)}function S(e){r&&clearTimeout(r),h(`
+    `,(l=o.querySelector(".close-btn"))==null||l.addEventListener("click",v),(d=o.querySelector("#btn-dismiss"))==null||d.addEventListener("click",v)}function L(e,o){r&&clearTimeout(r),h(`
       <div class="header">
         <div class="brand">
           <div class="logo-box">🛡️</div>
@@ -60,18 +60,20 @@
         </div>
         <button class="close-btn" title="Close">✕</button>
       </div>
-      <div class="url-box">${n(e)}</div>
+      <div class="url-box">${t(e)}</div>
       <div style="text-align: center; padding: 18px 0;">
         <div class="spinner"></div>
-        <div style="font-size: 12px; font-weight: 600; color: #fff; margin-bottom: 4px;">Inspecting Destination...</div>
+        <div style="font-size: 12px; font-weight: 600; color: #fff; margin-bottom: 4px;">
+          ${t(o||"Inspecting Destination...")}
+        </div>
         <div style="font-size: 10px; color: #94a3b8;">Analyzing redirect hops, domain age, typosquatting & Gemini AI...</div>
       </div>
-    `)}function $(e){const o=e.verdict||"SAFE",d=o==="DANGER"?"badge-danger":o==="CAUTION"?"badge-caution":"badge-safe",l=o==="DANGER"?"#ef4444":o==="CAUTION"?"#f59e0b":"#10b981";let p="";e.intentGuard&&(p=`
+    `)}function w(e){const o=e.verdict||"SAFE",l=o==="DANGER"?"badge-danger":o==="CAUTION"?"badge-caution":"badge-safe",d=o==="DANGER"?"#ef4444":o==="CAUTION"?"#f59e0b":"#10b981";let p="";e.intentGuard&&(p=`
         <div class="section-box">
           <div class="section-label">IntentGuard™ Identity</div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
             <span style="color: #94a3b8;">Claimed Brand:</span>
-            <strong style="color: #fff;">${n(e.intentGuard.claimedBrand||"None detected")}</strong>
+            <strong style="color: #fff;">${t(e.intentGuard.claimedBrand||"None detected")}</strong>
           </div>
           <div style="display: flex; justify-content: space-between;">
             <span style="color: #94a3b8;">Official Domain:</span>
@@ -81,7 +83,7 @@
           </div>
           ${e.intentGuard.lookalikeMatch?`
             <div style="margin-top: 4px; font-size: 10px; color: #f87171;">
-              ⚠️ Mimics legitimate official address: <strong>${n(e.intentGuard.lookalikeMatch)}</strong>
+              ⚠️ Mimics legitimate official address: <strong>${t(e.intentGuard.lookalikeMatch)}</strong>
             </div>
           `:""}
         </div>
@@ -89,12 +91,12 @@
         <div class="gemini-box">
           <div class="gemini-label">
             <span>✨ GEMINI 3.8 FLASH AI</span>
-            <span>${n(e.geminiAdvisor.threatLevel||"ANALYZED")}</span>
+            <span>${t(e.geminiAdvisor.threatLevel||"ANALYZED")}</span>
           </div>
-          <div style="line-height: 1.35; margin-bottom: 4px;">${n(e.geminiAdvisor.summaryExplanation||"")}</div>
+          <div style="line-height: 1.35; margin-bottom: 4px;">${t(e.geminiAdvisor.summaryExplanation||"")}</div>
           ${e.geminiAdvisor.socialEngineeringTactics&&e.geminiAdvisor.socialEngineeringTactics.length>0?`
             <div style="font-size: 10px; color: #d8b4fe;">
-              Tactics: <strong>${n(e.geminiAdvisor.socialEngineeringTactics.join(", "))}</strong>
+              Tactics: <strong>${t(e.geminiAdvisor.socialEngineeringTactics.join(", "))}</strong>
             </div>
           `:""}
         </div>
@@ -103,7 +105,7 @@
           <div class="section-label">Evidence (${e.why.length})</div>
           <ul style="list-style: none; padding: 0;">
             ${e.why.slice(0,3).map(g=>`
-              <li style="color: #cbd5e1; font-size: 11px; margin-bottom: 4px; line-height: 1.3;">• ${n(g)}</li>
+              <li style="color: #cbd5e1; font-size: 11px; margin-bottom: 4px; line-height: 1.3;">• ${t(g)}</li>
             `).join("")}
           </ul>
         </div>
@@ -119,33 +121,44 @@
         <button class="close-btn" title="Close">✕</button>
       </div>
 
-      <div class="url-box" title="${n(e.finalUrl||e.url)}">
-        ${e.isShortened?'<span style="color:#fbbf24; font-weight:bold;">[SHORTENER UNMASKED] ➔ </span>':""}
-        ${n(e.finalUrl||e.url)}
+      <div class="url-box" title="${t(e.finalUrl||e.url)}">
+        ${e.isShortened?'<div style="color: #fbbf24; font-weight: bold; margin-bottom: 2px;">⚡ Shortened URL Unmasked</div>':""}
+        ${e.finalUrl&&e.finalUrl!==e.url?`
+          <div style="font-size: 9px; color: #94a3b8; margin-bottom: 3px;">Initial link: ${t(e.url)}</div>
+          <div style="font-size: 11px; font-weight: bold; color: #38bdf8;">Final Destination: ${t(e.finalUrl)}</div>
+        `:`
+          <div>${t(e.url)}</div>
+        `}
       </div>
 
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 10px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 12px; border: 1px solid ${l}40;">
-        <span class="badge ${d}">${o}</span>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 10px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 12px; border: 1px solid ${d}40;">
+        <span class="badge ${l}">${o}</span>
         <div class="score">
           ${e.riskScore} <span class="score-denom">/ 100</span>
         </div>
       </div>
 
-      <div class="explanation">${n(e.explanation)}</div>
+      <div class="explanation">${t(e.explanation)}</div>
 
       ${p}
       ${b}
       ${f}
 
       <div class="footer-actions">
-        <a href="http://localhost:3000" target="_blank" class="btn btn-primary">
-          Open Full PWA
-        </a>
+        ${e.finalUrl&&e.finalUrl!==window.location.href?`
+          <a href="${t(e.finalUrl)}" target="_blank" class="btn btn-primary" style="background: linear-gradient(135deg, #059669, #0284c7); text-decoration: none;">
+            🚀 Go to Final URL
+          </a>
+        `:`
+          <a href="http://localhost:3000" target="_blank" class="btn btn-primary">
+            Open Full PWA
+          </a>
+        `}
         <button id="btn-dismiss" class="btn btn-secondary">
           Dismiss
         </button>
       </div>
-    `),r&&clearTimeout(r),r=setTimeout(v,3e4)}function L(e,o){h(`
+    `),r&&clearTimeout(r),r=setTimeout(v,3e4)}function S(e,o){h(`
       <div class="header">
         <div class="brand">
           <div class="logo-box" style="background: #ef4444;">⚠️</div>
@@ -156,9 +169,9 @@
         </div>
         <button class="close-btn">✕</button>
       </div>
-      <div class="url-box">${n(o)}</div>
-      <div style="color: #f87171; font-size: 11px; padding: 10px 0;">${n(e)}</div>
+      <div class="url-box">${t(o)}</div>
+      <div style="color: #f87171; font-size: 11px; padding: 10px 0;">${t(e)}</div>
       <div class="footer-actions">
         <button id="btn-dismiss" class="btn btn-secondary">Dismiss</button>
       </div>
-    `)}function n(e){return e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}chrome.runtime.onMessage.addListener(e=>{e.type==="PHISHLENS_SHOW_OVERLAY_LOADING"?S(e.url):e.type==="PHISHLENS_SHOW_OVERLAY_RESULT"?$(e.result):e.type==="PHISHLENS_SHOW_OVERLAY_ERROR"&&L(e.error,e.url)})})();
+    `)}function t(e){return e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}try{chrome.runtime.sendMessage({type:"CHECK_AUTO_INSPECT"},e=>{chrome.runtime.lastError||e&&e.shouldInspect&&e.scanResult&&w(e.scanResult)})}catch{}chrome.runtime.onMessage.addListener(e=>{e.type==="PHISHLENS_SHOW_OVERLAY_LOADING"?L(e.url,e.message):e.type==="PHISHLENS_SHOW_OVERLAY_RESULT"?w(e.result):e.type==="PHISHLENS_SHOW_OVERLAY_ERROR"&&S(e.error,e.url)})})();

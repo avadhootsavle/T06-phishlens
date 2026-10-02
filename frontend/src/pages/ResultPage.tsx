@@ -8,7 +8,6 @@ import { IntentGuardCard } from '../components/IntentGuardCard';
 import { PaymentTruthCard } from '../components/PaymentTruthCard';
 import { GeminiAdvisorCard } from '../components/GeminiAdvisorCard';
 import { RedirectChainCard } from '../components/RedirectChainCard';
-import { SafePreviewCard } from '../components/SafePreviewCard';
 
 export const ResultPage: React.FC = () => {
   const location = useLocation();
@@ -138,36 +137,6 @@ export const ResultPage: React.FC = () => {
         )}
       </div>
 
-      {/* Safe Preview Card (Sandboxed Destination vs Official Brand Reference) */}
-      {result.previewJobId && (
-        <div className="mb-6">
-          <SafePreviewCard
-            previewJobId={result.previewJobId}
-            targetUrl={result.finalUrl || result.url}
-            finalHostname={result.finalHostname || result.hostname}
-            onVisualMatch={(previewData) => {
-              if (previewData.visualImpersonation) {
-                setResult((prev) => {
-                  if (!prev) return prev;
-                  const newScore = Math.min(
-                    100,
-                    Math.max(prev.riskScore, (prev.riskScore || 0) + (previewData.riskBoost || 35))
-                  );
-                  const newVerdict = newScore >= 60 ? 'DANGER' : newScore >= 25 ? 'CAUTION' : 'SAFE';
-                  const whyItem = `Visual Impersonation: Page layout matches ${previewData.visualImpersonation?.brand} by ${previewData.visualImpersonation?.similarity}%.`;
-                  return {
-                    ...prev,
-                    riskScore: newScore,
-                    verdict: newVerdict,
-                    explanation: previewData.explanation || prev.explanation,
-                    why: prev.why.includes(whyItem) ? prev.why : [whyItem, ...prev.why],
-                  };
-                });
-              }
-            }}
-          />
-        </div>
-      )}
 
       {/* Specialized IntentGuard Details */}
       {isUrlScan && (

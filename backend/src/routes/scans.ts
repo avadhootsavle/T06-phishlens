@@ -16,7 +16,6 @@ import { analyzePaymentTruth } from '../pipeline/paymentTruth.js';
 import { calculateRisk } from '../engine/riskEngine.js';
 import { SignalInput } from '../engine/types.js';
 import { sanitizeUrlForStorage } from '../utils/sanitizeUrl.js';
-import { enqueuePreviewJob } from '../services/previewService.js';
 import { extractTokenFromContent, verifyQrPayload } from '../services/merchantQrService.js';
 
 export const scansRouter = Router();
@@ -224,17 +223,8 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
     include: { signals: true },
   });
 
-  // 7. Enqueue Non-Blocking Safe Preview Job (Runs sandboxed in background)
-  const previewJobId = enqueuePreviewJob({
-    url: finalUrl,
-    finalHostname,
-    scanId: scan.id,
-  });
-
   res.json({
     scanId: scan.id,
-    previewJobId,
-    previewUrl: `/api/v1/preview/${previewJobId}`,
     inputType: 'URL',
     verdict: scan.verdict,
     riskScore: scan.riskScore,
@@ -427,6 +417,7 @@ scansRouter.post('/scans/qr', async (req, res): Promise<void> => {
 
     const syntheticUpi = {
       isUPI: true,
+      rawPayload: qrContent,
       rawUPI: qrVerification.upiUri || `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(shopName)}&cu=INR`,
       upiId: vpa,
       payeeName: shopName,
@@ -615,16 +606,8 @@ scansRouter.post('/scans/qr', async (req, res): Promise<void> => {
       },
     });
 
-    const previewJobId = enqueuePreviewJob({
-      url: redirectInfo.finalUrl,
-      finalHostname,
-      scanId: scan.id,
-    });
-
     res.json({
       scanId: scan.id,
-      previewJobId,
-      previewUrl: `/api/v1/preview/${previewJobId}`,
       inputType: 'QR_URL',
       verdict: scan.verdict,
       riskScore: scan.riskScore,

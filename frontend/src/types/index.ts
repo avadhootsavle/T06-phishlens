@@ -96,28 +96,7 @@ export interface ScanResult {
   intentGuard?: IntentGuardInfo;
   paymentTruth?: PaymentTruthInfo;
   geminiAdvisor?: GeminiThreatAdvisor;
-  previewJobId?: string;
-  previewUrl?: string;
   createdAt: string;
-}
-
-export interface PreviewJobData {
-  jobId: string;
-  scanId?: string;
-  status: 'pending' | 'ready' | 'failed';
-  error?: string;
-  imageUrl?: string;
-  brandRefImageUrl?: string;
-  visualImpersonation?: {
-    brand: string;
-    similarity: number;
-    brandKey?: string;
-  };
-  brand?: string;
-  similarity?: number;
-  officialDomain?: string;
-  riskBoost?: number;
-  explanation?: string;
 }
 
 export type PaymentIntent = 'PAY_MERCHANT' | 'RECEIVE_MONEY' | 'NOT_SURE';

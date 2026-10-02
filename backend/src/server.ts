@@ -9,7 +9,6 @@ import { scansRouter } from './routes/scans.js';
 import { reportsRouter } from './routes/reports.js';
 import { adminRouter } from './routes/admin.js';
 import { merchantsRouter } from './routes/merchants.js';
-import { previewRouter } from './routes/preview.js';
 
 dotenv.config();
 
@@ -74,8 +73,6 @@ app.use('/api/v1', reportsRouter);
 app.use('/api/v1', adminRouter);
 app.use('/api/v1', merchantsRouter);
 app.use('/api', merchantsRouter);
-app.use('/api/v1', previewRouter);
-app.use('/api', previewRouter);
 
 // 6. Global 404 Handler
 app.use((_req, res) => {

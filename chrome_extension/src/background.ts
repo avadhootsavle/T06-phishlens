@@ -41,7 +41,7 @@ function setupContextMenu() {
     });
     chrome.contextMenus.create({
       id: 'phishlens_preview_link',
-      title: 'Preview Link Safety in HUD',
+      title: 'Inspect Link Safety in Floating HUD',
       contexts: ['link', 'selection'],
     });
   });

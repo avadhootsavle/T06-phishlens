@@ -180,8 +180,6 @@
       threatLevel?: string;
       socialEngineeringTactics?: string[];
     };
-    previewJobId?: string;
-    previewUrl?: string;
   }
 
   interface QrScanResultPayload {
@@ -439,44 +437,6 @@
     root.querySelector('#btn-retry-capture')?.addEventListener('click', triggerScreenQrCapture);
   }
 
-  // Poll and render sandboxed preview thumbnail in Shadow DOM
-  function pollAndRenderPreview(previewJobId: string, targetContainerId: string) {
-    if (!previewJobId) return;
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts++;
-      if (attempts > 10 || !shadowRoot) {
-        clearInterval(interval);
-        return;
-      }
-      try {
-        const resp = await fetch(`http://localhost:5001/api/v1/preview/${previewJobId}`);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (data.status === 'ready' && data.imageUrl && shadowRoot) {
-          clearInterval(interval);
-          const container = shadowRoot.getElementById(targetContainerId);
-          if (container) {
-            container.innerHTML = `
-              <div style="margin: 12px 0; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; text-align: left;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                  <span style="font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; font-family: ui-monospace, monospace;">Safe Preview (Sandboxed)</span>
-                  ${data.visualImpersonation ? `<span style="font-size: 9px; font-weight: 700; color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 2px 6px; border-radius: 4px;">⚠️ ${data.visualImpersonation.similarity}% Match</span>` : ''}
-                </div>
-                <div style="width: 100%; height: 130px; border-radius: 6px; overflow: hidden; border: 1px solid #cbd5e1; background: #0f172a;">
-                  <img src="http://localhost:5001${data.imageUrl}" style="width: 100%; height: 100%; object-fit: cover; object-position: top; display: block;" alt="Safe sandboxed preview" />
-                </div>
-                <div style="font-size: 9px; color: #64748b; margin-top: 4px; text-align: center;">Sandboxed preview - nothing was loaded on your device</div>
-              </div>
-            `;
-          }
-        } else if (data.status === 'failed') {
-          clearInterval(interval);
-        }
-      } catch {}
-    }, 1000);
-  }
-
   // -------------------------------------------------------------
   // Full-Screen Threat Blocker Interstitial (Score > 70)
   // -------------------------------------------------------------
@@ -678,8 +638,6 @@
             ` : ''}
           </div>
 
-          <div id="phishlens-preview-blocker-container"></div>
-
           <div class="blocker-actions">
             <button id="btn-safety-back" class="btn-safety">
               Go Back to Safety (Recommended)
@@ -691,10 +649,6 @@
         </div>
       </div>
     `;
-
-    if (result.previewJobId) {
-      pollAndRenderPreview(result.previewJobId, 'phishlens-preview-blocker-container');
-    }
 
     root.querySelector('#btn-safety-back')?.addEventListener('click', () => {
       if (window.history.length > 1) {
@@ -991,8 +945,6 @@
       ${intentGuardHtml}
       ${whyListHtml}
 
-      <div id="phishlens-preview-hud-container"></div>
-
       <div class="footer-actions">
         ${result.finalUrl && result.finalUrl !== window.location.href ? `
           <a href="${escapeHtml(result.finalUrl)}" target="_blank" class="btn btn-primary">
@@ -1008,10 +960,6 @@
         </button>
       </div>
     `);
-
-    if (result.previewJobId) {
-      pollAndRenderPreview(result.previewJobId, 'phishlens-preview-hud-container');
-    }
 
     // Auto-dismiss after 30 seconds
     if (autoDismissTimer) clearTimeout(autoDismissTimer);

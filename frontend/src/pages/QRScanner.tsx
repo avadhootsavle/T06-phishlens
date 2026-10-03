@@ -19,24 +19,7 @@ export const QRScanner: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
 
-  // Handle Demo Scenarios from query parameters
-  useEffect(() => {
-    const demo = searchParams.get('demo');
-    if (demo === 'reverse-payment') {
-      setIntent('RECEIVE_MONEY');
-      setManualPayload('upi://pay?pa=scammer.refund@upi&pn=Paytm%20Cashback%20Agent&am=4999');
-    } else if (demo === 'merchant-mismatch') {
-      setIntent('PAY_MERCHANT');
-      setExpectedMerchant('ABC Medical');
-      setManualPayload('upi://pay?pa=rahulsharma@upi&pn=Rahul%20Sharma&am=450');
-    } else if (demo === 'tampered-sticker') {
-      setIntent('PAY_MERCHANT');
-      setManualPayload('http://localhost:3000/m/eyJleHBpcmVzQXQiOjE4MjI1MDA1NDIsImlzc3VlZEF0IjoxNzkwOTY0NTQyLCJraWQiOiJwaGlzaGxlbnMtZWQyNTUxOS12MSIsIm1lcmNoYW50SWQiOiI5Mzk1ODFmMy03NGRlLTQ2MDQtODBiYi1jZmM3OTc0MDhmYjEiLCJzaG9wTmFtZSI6IkFwZXggRWxlY3Ryb25pY3MiLCJ2IjoxLCJ2cGEiOiJhcGV4LnBheUB1cGkifQ.NZ4mFNdSLLxAm5f0gR1ZTeNLC_GIe1drnedJQvV5PytiPRhvbb9_I0UUqdoXkrbi4RtKETqZaG6uw1kaEB4JDA');
-    } else if (demo === 'verified-merchant') {
-      setIntent('PAY_MERCHANT');
-      setManualPayload('http://localhost:3000/m/eyJleHBpcmVzQXQiOjE4MjI1MDA1NDIsImlzc3VlZEF0IjoxNzkwOTY0NTQyLCJraWQiOiJwaGlzaGxlbnMtZWQyNTUxOS12MSIsIm1lcmNoYW50SWQiOiI5Mzk1ODFmMy03NGRlLTQ2MDQtODBiYi1jZmM3OTc0MDhmYjEiLCJzaG9wTmFtZSI6IkFwZXggRWxlY3Ryb25pY3MiLCJ2IjoxLCJ2cGEiOiJhcGV4LnBheUB1cGkifQ.NZ4mFNdSLLxAm5f0gR1ZTeNLC_GIe1drnedJQvV5PytiPRhvbb9_I0UUqdoXkrbi4RtKETqZaG6uw1kaEB4JDg');
-    }
-  }, [searchParams]);
+
 
   // Initialize ZXing Camera Scanner
   useEffect(() => {
@@ -304,56 +287,11 @@ export const QRScanner: React.FC = () => {
 
       {/* Manual Payload Fallback */}
       <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
           <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700">
-            Manual Payload / Demo Presets
+            Manual QR String Input
           </h3>
-          <span className="text-[11px] font-mono text-slate-500">Click to auto-populate test vector</span>
-        </div>
-
-        {/* 1-Click Presets */}
-        <div className="flex flex-wrap items-center gap-1.5 mb-3">
-          <button
-            type="button"
-            onClick={() => {
-              setIntent('RECEIVE_MONEY');
-              setManualPayload('upi://pay?pa=scammer.refund@upi&pn=Paytm%20Cashback%20Agent&am=4999');
-            }}
-            className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[11px] font-mono text-slate-700 transition-colors"
-          >
-            Reverse Payment Trick
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIntent('PAY_MERCHANT');
-              setManualPayload('http://localhost:3000/m/eyJleHBpcmVzQXQiOjE4MjI1MDA1NDIsImlzc3VlZEF0IjoxNzkwOTY0NTQyLCJraWQiOiJwaGlzaGxlbnMtZWQyNTUxOS12MSIsIm1lcmNoYW50SWQiOiI5Mzk1ODFmMy03NGRlLTQ2MDQtODBiYi1jZmM3OTc0MDhmYjEiLCJzaG9wTmFtZSI6IkFwZXggRWxlY3Ryb25pY3MiLCJ2IjoxLCJ2cGEiOiJhcGV4LnBheUB1cGkifQ.NZ4mFNdSLLxAm5f0gR1ZTeNLC_GIe1drnedJQvV5PytiPRhvbb9_I0UUqdoXkrbi4RtKETqZaG6uw1kaEB4JDA');
-            }}
-            className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[11px] font-mono text-slate-700 transition-colors"
-          >
-            Tampered QR Sticker
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIntent('PAY_MERCHANT');
-              setExpectedMerchant('ABC Medical');
-              setManualPayload('upi://pay?pa=rahulsharma@upi&pn=Rahul%20Sharma&am=450');
-            }}
-            className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[11px] font-mono text-slate-700 transition-colors"
-          >
-            Payee Mismatch
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIntent('PAY_MERCHANT');
-              setManualPayload('http://localhost:3000/m/eyJleHBpcmVzQXQiOjE4MjI1MDA1NDIsImlzc3VlZEF0IjoxNzkwOTY0NTQyLCJraWQiOiJwaGlzaGxlbnMtZWQyNTUxOS12MSIsIm1lcmNoYW50SWQiOiI5Mzk1ODFmMy03NGRlLTQ2MDQtODBiYi1jZmM3OTc0MDhmYjEiLCJzaG9wTmFtZSI6IkFwZXggRWxlY3Ryb25pY3MiLCJ2IjoxLCJ2cGEiOiJhcGV4LnBheUB1cGkifQ.NZ4mFNdSLLxAm5f0gR1ZTeNLC_GIe1drnedJQvV5PytiPRhvbb9_I0UUqdoXkrbi4RtKETqZaG6uw1kaEB4JDg');
-            }}
-            className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[11px] font-mono text-emerald-800 transition-colors"
-          >
-            Verified Shop (Ed25519)
-          </button>
+          <span className="text-[11px] font-mono text-slate-500">Paste UPI URI or link to inspect without camera</span>
         </div>
 
         <form onSubmit={handleManualSubmit} className="space-y-3">

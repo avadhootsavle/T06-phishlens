@@ -20,15 +20,11 @@ export const UrlAnalyzer: React.FC = () => {
     'Calculating deterministic risk verdict and non-technical summary',
   ];
 
-  // Demo auto-fill
+  // Pre-fill URL if passed via query parameter (e.g., from extension or external link)
   useEffect(() => {
-    const demo = searchParams.get('demo');
-    if (demo === 'intentguard') {
-      setUrl('https://sbi-online-banking-portal.net');
-    } else if (demo === 'homoglyph') {
-      setUrl('https://раytm-wallet.com');
-    } else if (demo === 'safe') {
-      setUrl('https://www.onlinesbi.sbi');
+    const paramUrl = searchParams.get('url');
+    if (paramUrl) {
+      setUrl(paramUrl);
     }
   }, [searchParams]);
 
@@ -110,31 +106,9 @@ export const UrlAnalyzer: React.FC = () => {
               className="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-900 font-mono focus:outline-none focus:border-slate-400"
             />
 
-            {/* Quick Presets */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-              <span className="text-[11px] font-mono text-slate-500 mr-1">Presets:</span>
-              <button
-                type="button"
-                onClick={() => setUrl('https://sbi-online-banking-portal.net')}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] font-mono text-slate-700 transition-colors"
-              >
-                Fake SBI Portal
-              </button>
-              <button
-                type="button"
-                onClick={() => setUrl('https://раytm-wallet.com')}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] font-mono text-slate-700 transition-colors"
-              >
-                Cyrillic Lookalike
-              </button>
-              <button
-                type="button"
-                onClick={() => setUrl('https://www.onlinesbi.sbi')}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[11px] font-mono text-emerald-800 transition-colors"
-              >
-                Official SBI (Safe)
-              </button>
-            </div>
+            <p className="text-[11px] text-slate-500 mt-2">
+              Enter any complete web address or domain name to verify its authenticity.
+            </p>
           </div>
 
           {error && (
@@ -191,39 +165,6 @@ export const UrlAnalyzer: React.FC = () => {
             </button>
           </div>
         </form>
-      </div>
-
-      {/* Quick Test Presets */}
-      <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
-        <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-600 mb-3">
-          Quick Test Presets
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              setUrl('https://onlinesbi.sbi');
-              handleScan('https://onlinesbi.sbi');
-            }}
-            className="p-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-colors"
-          >
-            <div className="font-semibold text-slate-900">Legitimate Banking</div>
-            <div className="text-[11px] text-slate-500 font-mono">https://onlinesbi.sbi</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setUrl('https://sbi-online-banking-portal.net/login');
-              handleScan('https://sbi-online-banking-portal.net/login');
-            }}
-            className="p-3 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition-colors"
-          >
-            <div className="font-semibold text-slate-900">Imitation Domain</div>
-            <div className="text-[11px] text-slate-500 font-mono">sbi-online-banking-portal.net</div>
-          </button>
-        </div>
       </div>
     </div>
   );

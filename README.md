@@ -44,7 +44,7 @@
 4. [Technology Stack](#-technology-stack)
 5. [Architecture & Workflow](#-architecture--workflow)
 6. [Dataset & API Information](#-dataset--api-information)
-7. [Interactive 1-Click Demo Lab](#-interactive-1-click-demo-lab)
+7. [Live Evaluation Scenarios & Test Vectors](#-live-evaluation-scenarios--test-vectors)
 8. [Automated Test Suite](#-automated-test-suite)
 9. [Setup & Installation Instructions](#-setup--installation-instructions)
 10. [Security & Privacy Guarantees](#-security--privacy-guarantees)
@@ -218,9 +218,9 @@ sequenceDiagram
 
 ---
 
-## 🧪 Interactive 1-Click Demo Lab
+## 🧪 Live Evaluation Scenarios & Test Vectors
 
-PhishLens includes pre-configured live test scenarios on the PWA homepage (`http://localhost:3000`):
+To verify PhishLens against common cyberattack patterns, the following test vectors can be evaluated directly via the Link Checker or QR Scanner:
 
 | # | Attack Scenario | Test Input / Payload | Detection Mechanism | Final Verdict |
 | :-: | :--- | :--- | :--- | :-: |

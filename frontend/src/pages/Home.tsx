@@ -81,115 +81,60 @@ export const Home: React.FC = () => {
         </Link>
       </div>
 
-      {/* Interactive Verification Presets */}
-      <div className="p-6 rounded-xl bg-white border border-slate-200 shadow-sm mb-10">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700">
-                Test Scenarios
-              </h3>
-            </div>
-            <p className="text-sm font-semibold text-slate-900 mt-0.5">
-              Try common scam patterns and see how PhishLens evaluates them:
-            </p>
-          </div>
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600">
-            Interactive Presets
-          </span>
+      {/* Core Security Capabilities */}
+      <div className="mb-10">
+        <div className="flex items-center space-x-2 mb-4">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-700">
+            Security Capabilities
+          </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {/* Preset 1 */}
-          <button
-            type="button"
-            onClick={() => navigate('/check-url?demo=intentguard')}
-            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
-          >
-            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
-              <span>1. Fake KYC SMS Link</span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 mb-3 text-xs font-mono font-bold">
+                01
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 mb-1.5">IntentGuard</h4>
+              <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                Verifies brand claims against authoritative domain registries, detects Cyrillic homoglyph spoofs, checks domain registration age via RDAP, and inspects credential forms.
+              </p>
             </div>
-            <div className="text-[11px] text-slate-600 leading-relaxed">
-              Claims to be SBI on an unofficial, newly registered domain with credential fields &rarr; <span className="font-semibold text-red-600 font-mono">DANGER</span>
+            <div className="text-[11px] font-mono text-slate-500 pt-3 border-t border-slate-100">
+              Identity Verification
             </div>
-          </button>
+          </div>
 
-          {/* Preset 2 */}
-          <button
-            type="button"
-            onClick={() => navigate('/scan-qr?demo=reverse-payment')}
-            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
-          >
-            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
-              <span>2. Reverse Payment Trick</span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 mb-3 text-xs font-mono font-bold">
+                02
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 mb-1.5">PaymentTruth</h4>
+              <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                Prevents reverse-payment fraud by validating payment direction, flags payee-merchant mismatches, and verifies Ed25519 cryptographically signed retail stickers.
+              </p>
             </div>
-            <div className="text-[11px] text-slate-600 leading-relaxed">
-              You expect a ₹5,000 refund, but the QR triggers a debit from your account &rarr; <span className="font-semibold text-red-600 font-mono">DANGER</span>
+            <div className="text-[11px] font-mono text-slate-500 pt-3 border-t border-slate-100">
+              Transaction Semantics
             </div>
-          </button>
+          </div>
 
-          {/* Preset 3 */}
-          <button
-            type="button"
-            onClick={() => navigate('/scan-qr?demo=tampered-sticker')}
-            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
-          >
-            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
-              <span>3. Tampered QR Sticker</span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
+          <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800 mb-3 text-xs font-mono font-bold">
+                03
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 mb-1.5">ScamDNA</h4>
+              <p className="text-xs text-slate-600 leading-relaxed mb-3">
+                Computes 64-bit structural SimHash fingerprints of page templates, recognizing recurring phishing kits across newly registered disposable domain names.
+              </p>
             </div>
-            <div className="text-[11px] text-slate-600 leading-relaxed">
-              A counterfeit sticker pasted over a shop counter fails cryptographic verification &rarr; <span className="font-semibold text-red-600 font-mono">DANGER</span>
+            <div className="text-[11px] font-mono text-slate-500 pt-3 border-t border-slate-100">
+              Pattern Recognition
             </div>
-          </button>
-
-          {/* Preset 4 */}
-          <button
-            type="button"
-            onClick={() => navigate('/check-url?demo=homoglyph')}
-            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
-          >
-            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
-              <span>4. Cyrillic Lookalike</span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
-            </div>
-            <div className="text-[11px] text-slate-600 leading-relaxed">
-              Uses Cyrillic 'а' to imitate Paytm's web address &rarr; <span className="font-semibold text-red-600 font-mono">DANGER</span>
-            </div>
-          </button>
-
-          {/* Preset 5 */}
-          <button
-            type="button"
-            onClick={() => navigate('/scan-qr?demo=merchant-mismatch')}
-            className="p-3.5 rounded-lg bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition-all duration-150 hover:shadow-xs group"
-          >
-            <div className="flex items-center justify-between text-xs font-bold text-slate-900 mb-1">
-              <span>5. Payee Name Mismatch</span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 transition-colors" />
-            </div>
-            <div className="text-[11px] text-slate-600 leading-relaxed">
-              You intend to pay ABC Medical, but the QR points to an individual named Rahul Sharma &rarr; <span className="font-semibold text-amber-600 font-mono">CAUTION</span>
-            </div>
-          </button>
-
-          {/* Preset 6 */}
-          <button
-            type="button"
-            onClick={() => navigate('/scan-qr?demo=verified-merchant')}
-            className="p-3.5 rounded-lg bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-200 text-left transition-all duration-150 hover:shadow-xs group"
-          >
-            <div className="flex items-center justify-between text-xs font-bold text-emerald-950 mb-1">
-              <span>6. Authentic Shop QR</span>
-              <ArrowRight className="w-3.5 h-3.5 text-emerald-600 group-hover:text-emerald-900 transition-colors" />
-            </div>
-            <div className="text-[11px] text-emerald-800 leading-relaxed">
-              Official Ed25519 signed sticker for Apex Electronics. Verified and active &rarr; <span className="font-semibold text-emerald-700 font-mono">SAFE</span>
-            </div>
-          </button>
+          </div>
         </div>
       </div>
 

@@ -15,7 +15,6 @@ export const ResultPage: React.FC = () => {
   const initialResult = location.state?.scanResult as ScanResult | undefined;
 
   const [result, setResult] = useState<ScanResult | undefined>(initialResult);
-  const [enriching, setEnriching] = useState<boolean>(false);
 
   if (!result) {
     return (
@@ -35,32 +34,6 @@ export const ResultPage: React.FC = () => {
       </div>
     );
   }
-
-  // Simulate IntentGuard content script metadata enrichment for Demo 1
-  const handleSimulatePageMetadata = async () => {
-    setEnriching(true);
-    try {
-      const response = await fetch(`/api/v1/scans/${result.scanId}/page-metadata`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: 'SBI Online Banking Portal - Personal Login',
-          hasPasswordField: true,
-          hasOtpField: true,
-          brandKeywords: ['sbi', 'state bank of india', 'netbanking'],
-        }),
-      });
-
-      if (response.ok) {
-        const updated = await response.json();
-        setResult(updated);
-      }
-    } catch {
-      // Ignore
-    } finally {
-      setEnriching(false);
-    }
-  };
 
   const isUrlScan = result.inputType === 'URL' || result.inputType === 'QR_URL';
 
@@ -158,26 +131,6 @@ export const ResultPage: React.FC = () => {
             finalUrl={result.finalUrl}
             isShortened={result.isShortened}
           />
-
-          {/* Demo Step 2 Simulator */}
-          {result.verdict !== 'DANGER' && (
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-xs">
-                <span className="font-semibold text-slate-900 block">Extension Content Script Simulator</span>
-                <span className="text-slate-600">
-                  Simulate browser content script reporting sensitive password and OTP fields on this page.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleSimulatePageMetadata}
-                disabled={enriching}
-                className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-medium shrink-0 transition-colors"
-              >
-                {enriching ? 'Enriching...' : 'Detect Form Fields'}
-              </button>
-            </div>
-          )}
         </div>
       )}
 

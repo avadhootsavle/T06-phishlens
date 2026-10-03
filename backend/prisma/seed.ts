@@ -231,6 +231,28 @@ async function main() {
     },
   });
 
+  // Seed confirmed ScamDNA fingerprints for known phishing campaigns
+  const sbiBrand = await prisma.brand.findUnique({ where: { normalizedName: 'sbi' } });
+  const existingFp = await prisma.scamFingerprint.findFirst({
+    where: { campaignId: campaign.id },
+  });
+  if (!existingFp) {
+    await prisma.scamFingerprint.create({
+      data: {
+        campaignId: campaign.id,
+        brandId: sbiBrand?.id,
+        confirmed: true,
+        fingerprintData: {
+          hash: '883ffbc871d3c78e',
+          brand: 'sbi',
+          title: 'SBI Online Banking Portal',
+          formInputs: ['password', 'otp'],
+          headings: ['Login', 'Verify Account', 'Update KYC'],
+        },
+      },
+    });
+  }
+
   // Seed community reports
   const sampleReports = [
     {

@@ -87,6 +87,59 @@ adminRouter.patch('/admin/reports/:id', async (req, res): Promise<void> => {
     data: { status: parseResult.data.status },
   });
 
+  // Section 20 & 21: Store fingerprint in ScamDNA DB when confirmed by admin
+  if (parseResult.data.status === ReportStatus.CONFIRMED && existingReport.scanId) {
+    try {
+      const scan = await prisma.scan.findUnique({
+        where: { id: existingReport.scanId },
+        include: { signals: true },
+      });
+
+      if (scan) {
+        const brandSignal = scan.signals.find((s) => s.code.includes('BRAND'));
+        const detectedBrand =
+          (brandSignal?.metadata as Record<string, unknown>)?.detectedBrand as string ||
+          scan.hostname ||
+          'unknown';
+
+        const pythonUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+        const fpRes = await fetch(`${pythonUrl}/internal/fingerprint/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brand: detectedBrand,
+            title: scan.hostname || 'Phishing Portal',
+            headings: ['Login', 'Verify Account', 'Update KYC'],
+            form_inputs: ['password', 'otp', 'card_number'],
+          }),
+        });
+
+        if (fpRes.ok) {
+          const fpData = (await fpRes.json()) as { fingerprint_hash: string };
+          const activeCampaign = await prisma.scamCampaign.findFirst({
+            where: { status: 'ACTIVE' },
+          });
+
+          await prisma.scamFingerprint.create({
+            data: {
+              campaignId: activeCampaign?.id,
+              fingerprintData: {
+                hash: fpData.fingerprint_hash,
+                hostname: scan.hostname,
+                scanId: scan.id,
+                brand: detectedBrand,
+                confirmedAt: new Date().toISOString(),
+              },
+              confirmed: true,
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to index confirmed scam fingerprint in ScamDNA:', err);
+    }
+  }
+
   res.json({
     message: `Report status updated to ${updated.status}`,
     report: updated,

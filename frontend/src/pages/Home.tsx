@@ -1,29 +1,29 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { QrCode, Link2, ArrowRight, ShieldCheck, CreditCard, Layers, Flag } from 'lucide-react';
+import { QrCode, Link2, ArrowRight, ShieldCheck, CreditCard, Layers, Flag, Mail } from 'lucide-react';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 md:py-16">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 md:py-16">
       {/* Hero Section */}
       <div className="text-center max-w-2xl mx-auto mb-12">
         <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono font-medium mb-5">
-          <span>PhishLens v1.0</span>
+          <span>PhishLens v1.0 • Intent-Aware Security</span>
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 mb-4 leading-tight">
-          Verify links and payment QRs before you tap.
+          Verify links, emails and payment QRs before you tap.
         </h1>
 
         <p className="text-base text-slate-600 leading-relaxed max-w-xl mx-auto">
-          PhishLens checks whether a website or UPI QR actually matches what you expect. It spots fake bank logins, lookalike domains, and scams where a payment request is disguised as a refund.
+          PhishLens checks whether a website, email, or UPI QR actually matches what you expect. It spots fake bank logins, lookalike domains, spoofed sender brands, and reverse payment scams.
         </p>
       </div>
 
-      {/* Main Action Workspaces: Scan QR or Check Link */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+      {/* Main Action Workspaces: Scan QR, Check Link, Inspect Email */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
         {/* QR Scanner Card */}
         <Link
           to="/scan-qr"
@@ -42,7 +42,7 @@ export const Home: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              Point your camera or upload a screenshot of any UPI or web QR. PhishLens checks the recipient, verifies shop stickers, and warns you if a QR debits money when you expected a refund.
+              Point your camera or upload a screenshot of any UPI or web QR. Checks the recipient, verifies shop stickers, and warns you if a QR debits money when you expected a refund.
             </p>
           </div>
 
@@ -77,6 +77,34 @@ export const Home: React.FC = () => {
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-mono">
             <span>IntentGuard</span>
             <span className="text-emerald-700 font-medium">Ready</span>
+          </div>
+        </Link>
+
+        {/* Email Sentinel Card */}
+        <Link
+          to="/check-email"
+          className="p-6 rounded-xl bg-white border border-slate-200 hover:border-slate-300 shadow-sm transition-all duration-150 flex flex-col justify-between"
+        >
+          <div>
+            <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-800 mb-4">
+              <Mail className="w-5 h-5 text-blue-600" />
+            </div>
+
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-slate-900">
+                Inspect an Email
+              </h2>
+              <ArrowRight className="w-4 h-4 text-slate-400" />
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-6">
+              Works on iOS, Android, and Desktop. Verifies sender brand SPF authenticity, unmasks all contained hyperlinks, and detects psychological urgency traps.
+            </p>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-mono">
+            <span>Email Sentinel</span>
+            <span className="text-blue-700 font-medium">Active</span>
           </div>
         </Link>
       </div>

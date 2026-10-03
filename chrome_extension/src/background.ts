@@ -219,6 +219,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'GMAIL_EMAIL_SCANNED' && sender.tab?.id) {
+    const tabId = sender.tab.id;
+    chrome.storage.local.set({
+      [`tab_${tabId}`]: message.result,
+      [`email_${tabId}`]: message.result,
+    });
+    updateBadge(tabId, message.result.emailVerdict);
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (message.type === 'CHECK_SHOULD_BLOCK' && sender.tab?.id) {
     const tabId = sender.tab.id;
     chrome.storage.local.get([`tab_${tabId}`, 'autoBlockDangerous', `bypass_block_${tabId}`]).then((stored) => {

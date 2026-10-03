@@ -118,3 +118,56 @@ export interface ReportItem {
     createdAt: string;
   };
 }
+
+export interface EmailLinkReport {
+  url: string;
+  finalUrl?: string;
+  text?: string;
+  verdict: Verdict;
+  riskScore: number;
+  explanation: string;
+  why?: string[];
+  isShortened?: boolean;
+}
+
+export interface EmailScanReport {
+  scanId?: string;
+  emailVerdict: Verdict;
+  emailRiskScore: number;
+  explanation: string;
+  subject?: string;
+  senderAnalysis?: {
+    senderName?: string;
+    senderEmail?: string;
+    senderDomain?: string;
+    isSpoofed?: boolean;
+    claimedBrand?: string | null;
+    details?: string;
+  };
+  urgencySignals?: string[];
+  calendarAnalysis?: {
+    isCalendarInvite?: boolean;
+    summary?: string;
+    organizerName?: string;
+    organizerEmail?: string;
+    location?: string;
+    exploitSignals?: string[];
+    attachments?: string[];
+  };
+  summary?: {
+    totalLinks: number;
+    dangerCount: number;
+    cautionCount: number;
+    safeCount: number;
+  };
+  linksAnalyzed?: EmailLinkReport[];
+}
+
+export interface EmailScanPayload {
+  subject?: string;
+  senderName?: string;
+  senderEmail?: string;
+  bodySnippet?: string;
+  icsContent?: string;
+  links: Array<{ url: string; text?: string }>;
+}

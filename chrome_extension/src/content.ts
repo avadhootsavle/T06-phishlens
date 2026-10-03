@@ -986,6 +986,612 @@
     `);
   }
 
+  // -------------------------------------------------------------
+  // Gmail Special Feature: Extract Email Data & In-Page Sentinel
+  // -------------------------------------------------------------
+  function extractGmailData() {
+    const isGmail = window.location.hostname.includes('mail.google.com');
+    if (!isGmail) {
+      return { isGmail: false, isEmailOpen: false, links: [] };
+    }
+
+    // 1. Subject Extraction
+    const subjectEl =
+      document.querySelector('h2.hP') ||
+      document.querySelector('div[role="main"] h2') ||
+      document.querySelector('h2[data-thread-perm-id]') ||
+      document.querySelector('h2[data-legacy-thread-id]');
+    let subject = subjectEl?.textContent?.trim() || '';
+    if (!subject) {
+      subject = document.title
+        .replace(/\s*-\s*Gmail$/i, '')
+        .replace(/^Inbox\s*\(\d+\)\s*-\s*/i, '')
+        .replace(/^Inbox\s*-\s*/i, '')
+        .trim();
+    }
+
+    // 2. Sender Name and Email
+    const senderEl =
+      document.querySelector('span.gD') ||
+      document.querySelector('span[email]') ||
+      document.querySelector('div[role="main"] span[email]') ||
+      document.querySelector('div[role="main"] span.gD') ||
+      document.querySelector('span.go');
+    let senderName = senderEl?.getAttribute('name') || senderEl?.textContent?.trim() || '';
+    let senderEmail = senderEl?.getAttribute('email') || '';
+
+    if (!senderEmail) {
+      const emailSpan = document.querySelector('span.go, div[role="main"] span.go');
+      if (emailSpan) {
+        const match = emailSpan.textContent?.match(/<([^>]+)>/) || emailSpan.textContent?.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (match) senderEmail = match[1];
+      }
+    }
+    if (!senderEmail && senderEl?.textContent) {
+      const match = senderEl.textContent.match(/<([^>]+)>/) || senderEl.textContent.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      if (match) senderEmail = match[1];
+    }
+    if (senderName && senderName.includes('<')) {
+      senderName = senderName.split('<')[0].trim();
+    }
+
+    // 3. Email Body Containers
+    const bodySelectors = [
+      'div.a3s',
+      'div.ii.gt',
+      'div.adn',
+      'div[role="listitem"] .ii',
+      'div[role="listitem"]',
+      'div[data-message-id]',
+      'div.gs',
+      'div[role="main"] table.cf',
+      'div[role="main"] div[dir="ltr"]',
+    ];
+    const bodyElements = document.querySelectorAll(bodySelectors.join(', '));
+    let activeBody: HTMLElement | null = null;
+    if (bodyElements.length > 0) {
+      for (let i = bodyElements.length - 1; i >= 0; i--) {
+        const el = bodyElements[i] as HTMLElement;
+        if (el.offsetParent !== null || el.clientHeight > 0) {
+          activeBody = el;
+          break;
+        }
+      }
+      if (!activeBody) {
+        activeBody = bodyElements[bodyElements.length - 1] as HTMLElement;
+      }
+    }
+
+    const hasSubject = !!subject && subject.toLowerCase() !== 'inbox' && !subject.toLowerCase().startsWith('inbox (');
+    const isEmailOpen = hasSubject || bodyElements.length > 0 || window.location.hash.length > 10;
+    const bodySnippet =
+      activeBody?.textContent?.slice(0, 800)?.trim() ||
+      document.querySelector('div[role="main"]')?.textContent?.slice(0, 800)?.trim() ||
+      '';
+
+    // 4. Extract all embedded links inside active email body
+    const roots = bodyElements.length > 0 ? Array.from(bodyElements) : [document.querySelector('div[role="main"]') || document.body];
+    const rawLinks: Array<{ url: string; text: string }> = [];
+
+    roots.forEach((root) => {
+      if (!root) return;
+      root.querySelectorAll('a[href]').forEach((a) => {
+        let rawHref = (a.getAttribute('href') || '').trim();
+        if (!rawHref) return;
+
+        // Resolve Google redirect wrappers (google.com/url?q=...)
+        if (rawHref.includes('google.com/url?') || rawHref.includes('google.com/url/')) {
+          try {
+            const parsed = new URL(rawHref);
+            const targetQ = parsed.searchParams.get('q');
+            if (targetQ) rawHref = targetQ;
+          } catch {}
+        }
+
+        // Filter out internal Gmail actions & anchors
+        if (
+          rawHref.startsWith('https://mail.google.com') ||
+          rawHref.startsWith('http://mail.google.com') ||
+          rawHref.startsWith('https://accounts.google.com/SignOut') ||
+          rawHref.startsWith('mailto:') ||
+          rawHref.startsWith('tel:') ||
+          rawHref.startsWith('javascript:') ||
+          rawHref === '#' ||
+          rawHref.startsWith('#')
+        ) {
+          return;
+        }
+
+        const text = a.textContent?.trim() || a.getAttribute('title')?.trim() || a.getAttribute('aria-label')?.trim() || '';
+        rawLinks.push({ url: rawHref, text });
+      });
+    });
+
+    // Deduplicate links by URL
+    const seen = new Set<string>();
+    const uniqueLinks: Array<{ url: string; text: string }> = [];
+    for (const l of rawLinks) {
+      if (!seen.has(l.url)) {
+        seen.add(l.url);
+        uniqueLinks.push(l);
+      }
+    }
+
+    return {
+      isGmail: true,
+      isEmailOpen,
+      subject: subject || 'Active Email Message',
+      senderName: senderName || 'Unknown Sender',
+      senderEmail: senderEmail || 'unknown@domain.com',
+      bodySnippet,
+      links: uniqueLinks,
+    };
+  }
+
+  function showEmailReportOverlay(report: any) {
+    const isDanger = report.emailVerdict === 'DANGER';
+    const isCaution = report.emailVerdict === 'CAUTION';
+
+    const decisionBannerClass = isDanger
+      ? 'decision-danger'
+      : isCaution
+      ? 'decision-caution'
+      : 'decision-safe';
+
+    const decisionIcon = isDanger
+      ? icons.alertOctagon
+      : isCaution
+      ? icons.alertTriangle
+      : icons.checkCircle;
+
+    const verdictLabel = isDanger
+      ? 'DANGEROUS EMAIL / PHISHING DETECTED'
+      : isCaution
+      ? 'CAUTION: SUSPICIOUS EMAIL'
+      : 'SAFE EMAIL: NO THREATS DETECTED';
+
+    let senderHtml = '';
+    if (report.senderAnalysis) {
+      const sa = report.senderAnalysis;
+      senderHtml = `
+        <div class="section-box">
+          <div class="section-label">Sender Identity Analysis</div>
+          <div style="font-size: 11px; margin-bottom: 4px; color: #0f172a;">
+            <strong>${escapeHtml(sa.senderName || 'Unknown')}</strong> &lt;${escapeHtml(sa.senderEmail || 'Unknown')}&gt;
+          </div>
+          ${sa.isSpoofed ? `
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 6px 8px; color: #991b1b; font-size: 10.5px; line-height: 1.35; margin-top: 4px;">
+              <strong>🚨 Brand Impersonation:</strong> ${escapeHtml(sa.details)}
+            </div>
+          ` : `
+            <div style="color: #15803d; font-size: 10.5px; display: flex; align-items: center; gap: 4px;">
+              <span>✓</span> Sender address domain matches official registration.
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    let urgencyHtml = '';
+    if (report.urgencySignals && report.urgencySignals.length > 0) {
+      urgencyHtml = `
+        <div class="section-box" style="background: #fffbeb; border-color: #fef3c7;">
+          <div class="section-label" style="color: #92400e;">Psychological Urgency Tactics (${report.urgencySignals.length})</div>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            ${report.urgencySignals.map((u: string) => `
+              <li style="font-size: 10.5px; color: #78350f; margin-bottom: 2px;">⚠️ ${escapeHtml(u)}</li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    let linksHtml = '';
+    if (report.linksAnalyzed && report.linksAnalyzed.length > 0) {
+      linksHtml = `
+        <div class="section-box">
+          <div class="section-label">
+            Contained Links (${report.linksAnalyzed.length}) — 
+            <span style="color: ${report.summary.dangerCount > 0 ? '#dc2626' : '#64748b'}; font-weight: 700;">
+              ${report.summary.dangerCount} Danger, ${report.summary.cautionCount} Caution, ${report.summary.safeCount} Safe
+            </span>
+          </div>
+          <div style="max-height: 160px; overflow-y: auto; padding-right: 2px;">
+            ${report.linksAnalyzed.map((l: any) => {
+              const linkDanger = l.verdict === 'DANGER';
+              const linkCaution = l.verdict === 'CAUTION';
+              const badgeBg = linkDanger ? '#fef2f2' : linkCaution ? '#fffbeb' : '#f0fdf4';
+              const badgeBorder = linkDanger ? '#fecaca' : linkCaution ? '#fde68a' : '#bbf7d0';
+              const badgeText = linkDanger ? '#b91c1c' : linkCaution ? '#b45309' : '#15803d';
+
+              return `
+                <div style="background: ${badgeBg}; border: 1px solid ${badgeBorder}; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; font-size: 10.5px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                    <span style="font-weight: 700; color: ${badgeText};">${escapeHtml(l.verdict)} (${l.riskScore}/100)</span>
+                    ${l.text ? `<span style="color: #64748b; font-size: 10px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">"${escapeHtml(l.text)}"</span>` : ''}
+                  </div>
+                  <div style="font-family: monospace; font-size: 10px; color: #334155; word-break: break-all; margin-bottom: 2px;">
+                    ${escapeHtml(l.finalUrl || l.url)}
+                  </div>
+                  <div style="color: #475569; font-size: 10px; line-height: 1.3;">
+                    ${escapeHtml(l.explanation)}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      linksHtml = `
+        <div class="section-box" style="color: #15803d; font-size: 10.5px;">
+          ✓ No external hyperlinks detected in this email message.
+        </div>
+      `;
+    }
+
+    renderOverlay(`
+      <div class="header">
+        <div class="brand-wrap">
+          <div class="logo-badge">${icons.shield}</div>
+          <div>
+            <div class="brand-title">PhishLens Email Sentinel</div>
+            <div class="brand-subtitle">Gmail Intent & Link Analysis</div>
+          </div>
+        </div>
+        <button class="close-btn" title="Close">✕</button>
+      </div>
+
+      <div class="decision-banner ${decisionBannerClass}">
+        <div style="margin-top: 1px;">${decisionIcon}</div>
+        <div>
+          <div class="decision-title">${verdictLabel} (${report.emailRiskScore}/100)</div>
+          <div class="decision-subtext">${escapeHtml(report.explanation)}</div>
+        </div>
+      </div>
+
+      <div style="font-size: 11px; font-weight: 600; color: #0f172a; padding: 4px 0 2px 0;">
+        Subject: "${escapeHtml(report.subject)}"
+      </div>
+
+      ${senderHtml}
+      ${urgencyHtml}
+      ${linksHtml}
+
+      <div class="footer-actions">
+        <button id="btn-dismiss" class="btn btn-secondary" style="flex: 1;">Close Report</button>
+        <button id="btn-open-pwa-report" class="btn btn-primary" style="flex: 1;">Report to Triage</button>
+      </div>
+    `);
+
+    // Wire up report button
+    const pwaBtn = shadowRoot?.getElementById('btn-open-pwa-report');
+    if (pwaBtn) {
+      pwaBtn.addEventListener('click', () => {
+        const firstDanger = report.linksAnalyzed?.find((l: any) => l.verdict === 'DANGER');
+        const urlToReport = firstDanger?.url || (report.linksAnalyzed?.[0]?.url || '');
+        const targetUrl = `http://localhost:3000/report?url=${encodeURIComponent(urlToReport)}&note=${encodeURIComponent(`Reported via Gmail Sentinel: ${report.subject} (Sender: ${report.senderAnalysis?.senderEmail})`)}`;
+        window.open(targetUrl, '_blank');
+        dismissOverlay();
+      });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Gmail Active Listening Engine: Auto-scan, In-Mail Banner & Link Highlighting
+  // -------------------------------------------------------------
+  const scannedThreadsCache = new Map<string, any>();
+  let isAutoScanning = false;
+  let lastScannedKey = '';
+
+  function highlightHarmfulLinksInBody(report: any) {
+    if (!report?.linksAnalyzed || report.linksAnalyzed.length === 0) return;
+
+    const dangerLinks = report.linksAnalyzed.filter((l: any) => l.verdict === 'DANGER');
+    const cautionLinks = report.linksAnalyzed.filter((l: any) => l.verdict === 'CAUTION');
+
+    const bodyContainers = document.querySelectorAll('div.a3s, div.ii.gt, div.adn');
+    bodyContainers.forEach((container) => {
+      const anchors = container.querySelectorAll('a[href]');
+      anchors.forEach((a) => {
+        const anchorEl = a as HTMLAnchorElement;
+        let href = anchorEl.getAttribute('href') || '';
+        if (href.includes('google.com/url?') || href.includes('google.com/url/')) {
+          try {
+            const parsed = new URL(href);
+            const q = parsed.searchParams.get('q');
+            if (q) href = q;
+          } catch {}
+        }
+
+        // Check if matches a danger link
+        const matchedDanger = dangerLinks.find((dl: any) => dl.url === href || dl.finalUrl === href || href.startsWith(dl.url));
+        if (matchedDanger) {
+          if (!anchorEl.classList.contains('phishlens-highlighted-danger')) {
+            anchorEl.classList.add('phishlens-highlighted-danger');
+            anchorEl.style.cssText += `
+              outline: 2px dashed #dc2626 !important;
+              background: #fee2e2 !important;
+              color: #991b1b !important;
+              padding: 2px 6px !important;
+              border-radius: 4px !important;
+              text-decoration: none !important;
+              font-weight: 700 !important;
+              cursor: pointer !important;
+              position: relative !important;
+            `;
+
+            // Append warning badge
+            if (!anchorEl.parentElement?.querySelector('.phishlens-danger-badge')) {
+              const badge = document.createElement('span');
+              badge.className = 'phishlens-danger-badge';
+              badge.style.cssText = `
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                margin-left: 6px;
+                padding: 1px 6px;
+                background: #dc2626;
+                color: #ffffff;
+                font-size: 10px;
+                font-weight: 700;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                border-radius: 4px;
+                vertical-align: middle;
+                user-select: none;
+              `;
+              badge.textContent = '⚠️ Harmful Link';
+              anchorEl.parentNode?.insertBefore(badge, anchorEl.nextSibling);
+            }
+
+            // Click interception modal
+            anchorEl.onclick = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const proceed = confirm(
+                `🚨 PHISHLENS SECURITY WARNING\n\n` +
+                `This link in this email is flagged as DANGEROUS PHISHING (Score: ${matchedDanger.riskScore}/100).\n\n` +
+                `Target Destination: ${matchedDanger.url}\n` +
+                `Reason: ${matchedDanger.explanation}\n\n` +
+                `Do you really want to risk opening this link?`
+              );
+              if (proceed) {
+                window.open(matchedDanger.url, '_blank');
+              }
+            };
+          }
+        } else {
+          // Check if matches caution
+          const matchedCaution = cautionLinks.find((cl: any) => cl.url === href || cl.finalUrl === href);
+          if (matchedCaution && !anchorEl.classList.contains('phishlens-highlighted-caution')) {
+            anchorEl.classList.add('phishlens-highlighted-caution');
+            anchorEl.style.cssText += `
+              outline: 1px solid #d97706 !important;
+              background: #fffbeb !important;
+              padding: 1px 4px !important;
+              border-radius: 3px !important;
+            `;
+          }
+        }
+      });
+    });
+  }
+
+  function renderInMailBanner(report: any, state: 'scanning' | 'done') {
+    let banner = document.getElementById('phishlens-inmail-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'phishlens-inmail-banner';
+      banner.style.cssText = `
+        margin: 10px 0 14px 0;
+        border-radius: 8px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        transition: all 0.2s ease;
+        animation: phishlens-fade-in 0.2s ease;
+        z-index: 5;
+      `;
+
+      const subjectHeader =
+        document.querySelector('h2.hP') ||
+        document.querySelector('div[role="main"] h2') ||
+        document.querySelector('h2[data-thread-perm-id]');
+
+      if (subjectHeader && subjectHeader.parentElement) {
+        const parent = subjectHeader.parentElement;
+        if (parent.nextSibling) {
+          parent.parentNode?.insertBefore(banner, parent.nextSibling);
+        } else {
+          parent.parentNode?.appendChild(banner);
+        }
+      } else {
+        const main = document.querySelector('div[role="main"]');
+        main?.insertBefore(banner, main.firstChild);
+      }
+    }
+
+    if (state === 'scanning') {
+      banner.style.background = '#f8f9fa';
+      banner.style.border = '1px solid #e2e8f0';
+      banner.style.padding = '8px 12px';
+      banner.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+          <div style="display: flex; align-items: center; gap: 8px; color: #475569;">
+            <div style="width: 14px; height: 14px; border: 2px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: phishlens-spin 0.7s linear infinite;"></div>
+            <strong style="color: #0f172a;">PhishLens Sentinel:</strong>
+            <span>Active listening enabled — evaluating sender domain authenticity & scanning embedded links...</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const isDanger = report.emailVerdict === 'DANGER';
+    const isCaution = report.emailVerdict === 'CAUTION';
+
+    banner.style.background = isDanger ? '#fef2f2' : isCaution ? '#fffbeb' : '#f0fdf4';
+    banner.style.border = `1px solid ${isDanger ? '#fecaca' : isCaution ? '#fde68a' : '#bbf7d0'}`;
+    banner.style.padding = '10px 14px';
+
+    const iconSvg = isDanger
+      ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2.5"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+      : isCaution
+      ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
+      : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+
+    const titleColor = isDanger ? '#b91c1c' : isCaution ? '#b45309' : '#15803d';
+    const titleText = isDanger
+      ? `🚨 DANGEROUS PHISHING EMAIL DETECTED (Risk Score: ${report.emailRiskScore}/100)`
+      : isCaution
+      ? `⚠️ CAUTION: SUSPICIOUS EMAIL (Risk Score: ${report.emailRiskScore}/100)`
+      : `✓ VERIFIED LEGITIMATE EMAIL (Legitimacy Score: ${Math.max(0, 100 - report.emailRiskScore)}/100)`;
+
+    const subText = isDanger
+      ? `${escapeHtml(report.explanation)} — Do not click highlighted red links.`
+      : isCaution
+      ? `${escapeHtml(report.explanation)}`
+      : `Sender domain authenticated (${escapeHtml(report.senderAnalysis?.senderEmail || 'Verified')}). ${report.summary?.totalLinks || 0} links verified clean.`;
+
+    banner.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: flex-start; gap: 8px; flex: 1; min-width: 260px;">
+          <div style="margin-top: 1px;">${iconSvg}</div>
+          <div>
+            <div style="font-size: 11.5px; font-weight: 800; color: ${titleColor}; letter-spacing: 0.2px;">
+              ${titleText}
+            </div>
+            <div style="font-size: 10.5px; color: #334155; margin-top: 2px; line-height: 1.35;">
+              ${subText}
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button id="phishlens-btn-show-details" style="
+            background: #0f172a;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 10.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+          ">
+            View Details
+          </button>
+          ${isDanger ? `
+            <button id="phishlens-btn-report-banner" style="
+              background: #fee2e2;
+              color: #b91c1c;
+              border: 1px solid #fca5a5;
+              border-radius: 6px;
+              padding: 5px 10px;
+              font-size: 10.5px;
+              font-weight: 600;
+              cursor: pointer;
+            ">
+              Report Scam
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    banner.querySelector('#phishlens-btn-show-details')?.addEventListener('click', () => {
+      showEmailReportOverlay(report);
+    });
+
+    banner.querySelector('#phishlens-btn-report-banner')?.addEventListener('click', () => {
+      const firstDanger = report.linksAnalyzed?.find((l: any) => l.verdict === 'DANGER');
+      const targetLink = firstDanger?.url || (report.linksAnalyzed?.[0]?.url || '');
+      const url = `http://localhost:3000/report?url=${encodeURIComponent(targetLink)}&note=${encodeURIComponent(`Reported from Gmail Active Listening: ${report.subject} (Sender: ${report.senderAnalysis?.senderEmail})`)}`;
+      window.open(url, '_blank');
+    });
+  }
+
+  // Active Listening Loop
+  async function triggerActiveEmailScan() {
+    if (isAutoScanning) return;
+    const emailData = extractGmailData();
+    if (!emailData.isGmail || !emailData.isEmailOpen) return;
+
+    // Build unique thread identity key
+    const currentKey = `${emailData.subject}__${emailData.senderEmail}__${window.location.hash}`;
+    if (currentKey === lastScannedKey && scannedThreadsCache.has(currentKey)) {
+      const cached = scannedThreadsCache.get(currentKey);
+      renderInMailBanner(cached, 'done');
+      highlightHarmfulLinksInBody(cached);
+      return;
+    }
+
+    lastScannedKey = currentKey;
+    isAutoScanning = true;
+    renderInMailBanner(null, 'scanning');
+
+    try {
+      const resp = await fetch(`${API_BASE}/scans/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Scan API error ${resp.status}`);
+      }
+
+      const report = await resp.json();
+      scannedThreadsCache.set(currentKey, report);
+
+      renderInMailBanner(report, 'done');
+      highlightHarmfulLinksInBody(report);
+
+      // Notify background service worker to update toolbar badge
+      chrome.runtime.sendMessage({
+        type: 'GMAIL_EMAIL_SCANNED',
+        result: report,
+      });
+    } catch (err) {
+      console.warn('PhishLens Active Listening scan failed:', err);
+      const banner = document.getElementById('phishlens-inmail-banner');
+      if (banner) {
+        banner.style.display = 'none';
+      }
+    } finally {
+      isAutoScanning = false;
+    }
+  }
+
+  function initGmailActiveListening() {
+    if (!window.location.hostname.includes('mail.google.com')) return;
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleCheck = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        triggerActiveEmailScan();
+      }, 400);
+    };
+
+    window.addEventListener('hashchange', scheduleCheck);
+    window.addEventListener('popstate', scheduleCheck);
+
+    const observer = new MutationObserver(() => {
+      const subjectHeader =
+        document.querySelector('h2.hP') ||
+        document.querySelector('div[role="main"] h2') ||
+        document.querySelector('h2[data-thread-perm-id]');
+      if (subjectHeader) {
+        scheduleCheck();
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    scheduleCheck();
+  }
+
+  initGmailActiveListening();
+
   function escapeHtml(str: string): string {
     return str
       .replace(/&/g, '&amp;')
@@ -1023,8 +1629,8 @@
     // Ignore
   }
 
-  // 3. Listen for messages from background script
-  chrome.runtime.onMessage.addListener((message) => {
+  // 3. Listen for messages from background script & popup
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'PHISHLENS_BLOCK_PAGE') {
       showBlockerOverlay(message.result);
     } else if (message.type === 'PHISHLENS_SHOW_OVERLAY_LOADING') {
@@ -1035,6 +1641,14 @@
       showErrorOverlay(message.error, message.url);
     } else if (message.type === 'TRIGGER_SCREEN_QR_CAPTURE') {
       triggerScreenQrCapture();
+    } else if (message.type === 'EXTRACT_GMAIL_DATA') {
+      const data = extractGmailData();
+      sendResponse(data);
+      return true;
+    } else if (message.type === 'SHOW_GMAIL_SCAN_OVERLAY') {
+      showEmailReportOverlay(message.report);
+      sendResponse({ success: true });
+      return true;
     }
   });
 })();

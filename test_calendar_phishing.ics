@@ -1,0 +1,18 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PhishLens Security Research//Calendar Phishing Threat Test//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:phishlens-test-20261003@security.test
+DTSTAMP:20261003T120000Z
+DTSTART:20261003T130000Z
+DTEND:20261003T140000Z
+ORGANIZER;CN="State Bank of India Security Alerts":mailto:alerts@sbi-bank-verify.net
+SUMMARY:URGENT: NetBanking Account Suspended - Verify KYC Now
+DESCRIPTION:Dear Customer,\n\nYour State Bank of India account access has been temporarily locked due to an unverified transaction.\n\nTo restore access immediately and prevent permanent deactivation, complete your biometric KYC verification within 24 hours:\n\nhttps://sbi-online-banking-portal.net/login\n\nReference Ticket: #SBI-8921-URGENT\nLocation: Online Secure Terminal
+LOCATION:\\\\malicious-smb-host.attacker.com\\leak
+URL:https://sbi-online-banking-portal.net/login
+ATTACH:https://malicious-server.example/security-patch.exe
+STATUS:CONFIRMED
+END:VEVENT
+END:VCALENDAR

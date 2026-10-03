@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Shield, QrCode, Link2, SlidersHorizontal, Info, Download, Flag } from 'lucide-react';
+import { Shield, QrCode, Link2, SlidersHorizontal, Info, Download, Flag, Mail } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
@@ -9,6 +9,7 @@ export const Navbar: React.FC = () => {
     { to: '/', label: 'Overview', icon: Shield },
     { to: '/scan-qr', label: 'Scan QR', icon: QrCode },
     { to: '/check-url', label: 'Check Link', icon: Link2 },
+    { to: '/check-email', label: 'Check Email', icon: Mail },
     { to: '/report', label: 'Report', icon: Flag },
     { to: '/admin', label: 'Triage', icon: SlidersHorizontal },
     { to: '/about', label: 'Architecture', icon: Info },
@@ -88,6 +89,14 @@ export const Navbar: React.FC = () => {
               title="Check URL"
             >
               <Link2 className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/check-email"
+              className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+              aria-label="Check Email"
+              title="Check Email"
+            >
+              <Mail className="w-4 h-4" />
             </Link>
             <Link
               to="/report"

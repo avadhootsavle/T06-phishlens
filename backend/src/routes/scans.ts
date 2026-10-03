@@ -17,6 +17,7 @@ import { calculateRisk } from '../engine/riskEngine.js';
 import { SignalInput } from '../engine/types.js';
 import { sanitizeUrlForStorage } from '../utils/sanitizeUrl.js';
 import { extractTokenFromContent, verifyQrPayload } from '../services/merchantQrService.js';
+import { parseIcs, isIcsContent } from '../utils/icsParser.js';
 
 export const scansRouter = Router();
 
@@ -48,17 +49,10 @@ const QrScanSchema = z.object({
 });
 
 /**
- * POST /api/v1/scans/url
- * Primary URL scanning endpoint with redirect tracing, heuristics, reputation, and scoring
+ * Core URL scanning pipeline reusable by direct URL scan and batch Email Link scanner
  */
-scansRouter.post('/scans/url', async (req, res): Promise<void> => {
-  const parseResult = UrlScanSchema.safeParse(req.body);
-  if (!parseResult.success) {
-    res.status(400).json({ error: parseResult.error.errors[0].message });
-    return;
-  }
-
-  let rawUrl = parseResult.data.url;
+export async function performUrlScan(rawInputUrl: string) {
+  let rawUrl = rawInputUrl.trim();
   if (!/^https?:\/\//i.test(rawUrl)) {
     rawUrl = 'https://' + rawUrl;
   }
@@ -69,11 +63,21 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
   try {
     await validateSSRF(rawUrl);
   } catch (err: unknown) {
-    res.status(400).json({
-      error: (err as Error).message,
+    return {
       isBlocked: true,
-    });
-    return;
+      error: (err as Error).message,
+      verdict: 'DANGER' as const,
+      riskScore: 100,
+      explanation: 'Blocked by SSRF Route Guard: Destination points to protected or internal network.',
+      why: ['Destination resolves to private, loopback, or metadata network.'],
+      signals: [],
+      url: rawUrl,
+      finalUrl: rawUrl,
+      hostname: 'blocked',
+      finalHostname: 'blocked',
+      isShortened: false,
+      redirects: [],
+    };
   }
 
   // 2. Redirect Resolution (Up to 5 hops)
@@ -223,9 +227,9 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
     include: { signals: true },
   });
 
-  res.json({
+  return {
     scanId: scan.id,
-    inputType: 'URL',
+    inputType: 'URL' as const,
     verdict: scan.verdict,
     riskScore: scan.riskScore,
     explanation: scan.explanation,
@@ -246,6 +250,295 @@ scansRouter.post('/scans/url', async (req, res): Promise<void> => {
     },
     geminiAdvisor: geminiAnalysis || undefined,
     createdAt: scan.createdAt.toISOString(),
+  };
+}
+
+/**
+ * POST /api/v1/scans/url
+ * Primary URL scanning endpoint with redirect tracing, heuristics, reputation, and scoring
+ */
+scansRouter.post('/scans/url', async (req, res): Promise<void> => {
+  const parseResult = UrlScanSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({ error: parseResult.error.errors[0].message });
+    return;
+  }
+
+  const result = await performUrlScan(parseResult.data.url);
+  if ((result as any).isBlocked) {
+    res.status(400).json({
+      error: (result as any).error,
+      isBlocked: true,
+    });
+    return;
+  }
+
+  res.json(result);
+});
+
+const EmailScanSchema = z.object({
+  subject: z.string().optional(),
+  senderName: z.string().optional(),
+  senderEmail: z.string().optional(),
+  bodySnippet: z.string().optional(),
+  icsContent: z.string().optional(),
+  links: z
+    .array(
+      z.object({
+        url: z.string(),
+        text: z.string().optional(),
+      })
+    )
+    .default([]),
+});
+
+/**
+ * POST /api/v1/scans/email
+ * Comprehensive Gmail / Email / Calendar (.ics) Scanner:
+ * 1. Checks for sender/organizer brand spoofing
+ * 2. Parses .ics calendar invites for UNC exploit vectors and malicious attachments
+ * 3. Scans all links in parallel through the IntentGuard pipeline
+ * 4. Evaluates urgency and social engineering patterns
+ * 5. Produces a composite threat rating & verdict
+ */
+scansRouter.post('/scans/email', async (req, res): Promise<void> => {
+  const parseResult = EmailScanSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({ error: parseResult.error.errors[0].message });
+    return;
+  }
+
+  let { subject, senderName, senderEmail, bodySnippet, icsContent, links } = parseResult.data;
+
+  // Detect and parse RFC 5545 iCalendar (.ics) invite if present
+  const rawIcs = icsContent || (bodySnippet && isIcsContent(bodySnippet) ? bodySnippet : undefined);
+  const parsedIcs = rawIcs ? parseIcs(rawIcs) : undefined;
+  const calendarExploitSignals: string[] = [];
+
+  if (parsedIcs && parsedIcs.isIcs) {
+    if (!subject && parsedIcs.summary) {
+      subject = parsedIcs.summary;
+    }
+    if (!senderName && parsedIcs.organizerName) {
+      senderName = parsedIcs.organizerName;
+    }
+    if (!senderEmail && parsedIcs.organizerEmail) {
+      senderEmail = parsedIcs.organizerEmail;
+    }
+    if (parsedIcs.description) {
+      bodySnippet = `${bodySnippet ? bodySnippet + '\n\n' : ''}Event Description: ${parsedIcs.description}`;
+    }
+    if (parsedIcs.location) {
+      bodySnippet = `${bodySnippet ? bodySnippet + '\n' : ''}Location: ${parsedIcs.location}`;
+    }
+
+    // Merge any URLs extracted from calendar properties
+    for (const extracted of parsedIcs.extractedUrls) {
+      if (!links.some((l) => l.url.trim().toLowerCase() === extracted.url.trim().toLowerCase())) {
+        links.push(extracted);
+      }
+    }
+
+    // Capture exploit vectors like UNC path coercion or dangerous executable attachments
+    if (parsedIcs.exploitIndicators.length > 0) {
+      calendarExploitSignals.push(...parsedIcs.exploitIndicators);
+    }
+  }
+
+  // 1. Analyze Sender Identity vs Claimed Brand
+  const brands = await prisma.brand.findMany({
+    include: { domains: true },
+  });
+
+  let isSpoofed = false;
+  let spoofedBrandName: string | undefined;
+  let senderDetails = 'Sender address appears consistent.';
+  let senderRiskPoints = 0;
+
+  const senderText = `${senderName || ''} ${senderEmail || ''}`.toLowerCase();
+  let senderDomain = '';
+  if (senderEmail && senderEmail.includes('@')) {
+    senderDomain = senderEmail.split('@')[1].toLowerCase().trim().replace(/[>\])]/, '');
+  }
+
+  for (const b of brands) {
+    const brandMatches =
+      b.keywords.some((kw) => senderText.includes(kw.toLowerCase())) ||
+      senderText.includes(b.name.toLowerCase());
+
+    if (brandMatches) {
+      const officialDomains = b.domains.map((d) => d.officialDomain.toLowerCase());
+      const isOfficial = officialDomains.some(
+        (od) => senderDomain === od || senderDomain.endsWith('.' + od)
+      );
+
+      if (!isOfficial && senderDomain) {
+        isSpoofed = true;
+        spoofedBrandName = b.name;
+        senderRiskPoints = 50;
+        senderDetails = `Display name claims to be '${b.name}', but email was sent from '@${senderDomain}' (Official: ${officialDomains.join(', ')}).`;
+        break;
+      }
+    }
+  }
+
+  // Check if claiming to be financial / banking while using generic webmail
+  const genericFreeMail = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'yopmail.com'];
+  if (!isSpoofed && senderDomain && genericFreeMail.includes(senderDomain)) {
+    const bankingKeywords = ['bank', 'security', 'alert', 'kyc', 'support', 'customercare', 'verify', 'update'];
+    if (bankingKeywords.some((bk) => (senderName || '').toLowerCase().includes(bk))) {
+      isSpoofed = true;
+      senderRiskPoints = 40;
+      senderDetails = `Institutional service alerts are not dispatched from free webmail accounts (@${senderDomain}).`;
+    }
+  }
+
+  // 2. Urgent / Coercive Social Engineering Analysis
+  const urgencySignals: string[] = [];
+  const fullEmailContent = `${subject || ''} ${bodySnippet || ''}`.toLowerCase();
+
+  const urgencyPatterns = [
+    { pattern: /(account|card|access)\s+(suspended|blocked|terminated|locked|deactivated)/i, desc: 'Account suspension intimidation' },
+    { pattern: /(update|verify|confirm)\s+(kyc|pan|identity|details|pin|password)/i, desc: 'Urgent KYC or credential prompt' },
+    { pattern: /(unauthorized|suspicious|fraudulent)\s+(transaction|login|activity)/i, desc: 'Unverified security alert' },
+    { pattern: /(unpaid|electricity|power\s+cut|bill\s+due|disconnected\s+tonight)/i, desc: 'Utility disconnection intimidation' },
+    { pattern: /(lottery|won|cashback\s+of|reward\s+claim|prize)/i, desc: 'Unsolicited reward or cashback lure' },
+    { pattern: /(immediate|urgent|action\s+required|within\s+\d+\s+hours)/i, desc: 'Artificial urgency time pressure' },
+  ];
+
+  for (const up of urgencyPatterns) {
+    if (up.pattern.test(fullEmailContent)) {
+      urgencySignals.push(up.desc);
+    }
+  }
+
+  const urgencyRiskPoints = urgencySignals.length >= 2 ? 20 : urgencySignals.length === 1 ? 10 : 0;
+
+  // 3. Scan All Contained Links in Parallel (up to 12 unique links)
+  const uniqueUrls = Array.from(new Set(links.map((l) => l.url.trim()))).filter((u) => u.length > 0).slice(0, 12);
+
+  const linkScanResults = await Promise.all(
+    uniqueUrls.map(async (u) => {
+      try {
+        const scanRes = await performUrlScan(u);
+        const originalLinkObj = links.find((l) => l.url.trim() === u);
+        return {
+          url: u,
+          text: originalLinkObj?.text || undefined,
+          scanId: (scanRes as any).scanId,
+          verdict: scanRes.verdict,
+          riskScore: scanRes.riskScore,
+          explanation: scanRes.explanation,
+          finalUrl: scanRes.finalUrl,
+          why: scanRes.why || [],
+          isShortened: scanRes.isShortened,
+        };
+      } catch (err) {
+        return {
+          url: u,
+          verdict: 'CAUTION' as const,
+          riskScore: 30,
+          explanation: 'Unable to complete full pipeline inspection for this link.',
+          why: [(err as Error).message],
+        };
+      }
+    })
+  );
+
+  // 4. Aggregate Email Threat Scoring
+  const dangerLinks = linkScanResults.filter((l) => l.verdict === 'DANGER');
+  const cautionLinks = linkScanResults.filter((l) => l.verdict === 'CAUTION');
+  const safeLinks = linkScanResults.filter((l) => l.verdict === 'SAFE');
+
+  const maxLinkRisk = linkScanResults.length > 0
+    ? Math.max(...linkScanResults.map((l) => l.riskScore))
+    : 0;
+
+  const calendarExploitRisk = calendarExploitSignals.length > 0 ? 80 : 0;
+
+  let totalEmailRisk = Math.max(
+    maxLinkRisk,
+    senderRiskPoints + urgencyRiskPoints,
+    calendarExploitRisk
+  );
+
+  if (calendarExploitSignals.length > 0) {
+    totalEmailRisk = Math.max(totalEmailRisk, 85);
+  } else if (isSpoofed && dangerLinks.length > 0) {
+    totalEmailRisk = Math.max(totalEmailRisk, 90);
+  } else if (dangerLinks.length > 0) {
+    totalEmailRisk = Math.max(totalEmailRisk, 75);
+  }
+
+  totalEmailRisk = Math.min(100, Math.max(0, totalEmailRisk));
+
+  let emailVerdict: 'SAFE' | 'CAUTION' | 'DANGER' = 'SAFE';
+  if (totalEmailRisk >= 60 || dangerLinks.length > 0 || isSpoofed || calendarExploitSignals.length > 0) {
+    emailVerdict = 'DANGER';
+  } else if (totalEmailRisk >= 25 || cautionLinks.length > 0 || urgencySignals.length > 0) {
+    emailVerdict = 'CAUTION';
+  }
+
+  // 5. Construct Deterministic Explanation
+  let explanation = '';
+  if (calendarExploitSignals.length > 0) {
+    explanation = `Dangerous calendar invite: Detected ${calendarExploitSignals[0]}`;
+  } else if (emailVerdict === 'DANGER') {
+    if (isSpoofed && dangerLinks.length > 0) {
+      explanation = `Dangerous email: Impersonates ${spoofedBrandName || 'a recognized organization'} from an unauthorized domain and contains ${dangerLinks.length} malicious phishing link(s).`;
+    } else if (isSpoofed) {
+      explanation = `Dangerous email: Sender address is spoofed (${senderDetails}).`;
+    } else if (dangerLinks.length > 0) {
+      explanation = `Dangerous email: Contains ${dangerLinks.length} high-risk phishing link(s) (${dangerLinks[0].explanation}).`;
+    } else {
+      explanation = 'High-risk email: Detected strong impersonation and credential theft indicators.';
+    }
+  } else if (emailVerdict === 'CAUTION') {
+    if (cautionLinks.length > 0) {
+      explanation = `Caution advised: Contains ${cautionLinks.length} link(s) with suspicious or young domain characteristics.`;
+    } else if (urgencySignals.length > 0) {
+      explanation = `Caution advised: Uses psychological urgency and pressure tactics (${urgencySignals.join(', ')}).`;
+    } else {
+      explanation = 'Caution advised: Email signals warrant verification before clicking links.';
+    }
+  } else {
+    explanation = linkScanResults.length > 0
+      ? `No malicious links or sender impersonation detected across ${linkScanResults.length} analyzed link(s).`
+      : 'No malicious indicators detected in this email.';
+  }
+
+  res.json({
+    emailVerdict,
+    emailRiskScore: totalEmailRisk,
+    explanation,
+    subject: subject || (parsedIcs?.isIcs ? 'Calendar Event' : 'Untitled Email'),
+    senderAnalysis: {
+      senderName: senderName || (parsedIcs?.isIcs ? 'Unknown Organizer' : 'Unknown Sender'),
+      senderEmail: senderEmail || (parsedIcs?.isIcs ? 'Unknown Organizer Email' : 'Unknown Email'),
+      isSpoofed,
+      claimedBrand: spoofedBrandName,
+      details: senderDetails,
+      riskImpact: senderRiskPoints,
+    },
+    urgencySignals,
+    calendarAnalysis: parsedIcs?.isIcs
+      ? {
+          isCalendarInvite: true,
+          summary: parsedIcs.summary,
+          organizerName: parsedIcs.organizerName,
+          organizerEmail: parsedIcs.organizerEmail,
+          location: parsedIcs.location,
+          exploitSignals: calendarExploitSignals,
+          attachments: parsedIcs.attachments,
+        }
+      : undefined,
+    summary: {
+      totalLinks: linkScanResults.length,
+      dangerCount: dangerLinks.length,
+      cautionCount: cautionLinks.length,
+      safeCount: safeLinks.length,
+    },
+    linksAnalyzed: linkScanResults,
   });
 });
 

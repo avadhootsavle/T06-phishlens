@@ -156,3 +156,21 @@ export async function verifyQrContent(
 
   return response.json();
 }
+
+export async function scanEmail(
+  payload: import('../types').EmailScanPayload
+): Promise<import('../types').EmailScanReport> {
+  const response = await fetch(`${API_BASE}/scans/email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Email analysis failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+

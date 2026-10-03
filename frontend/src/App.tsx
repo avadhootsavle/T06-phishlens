@@ -8,6 +8,7 @@ import { ResultPage } from './pages/ResultPage';
 import { ReportPage } from './pages/ReportPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { About } from './pages/About';
+import { EmailAnalyzer } from './pages/EmailAnalyzer';
 import { MerchantVerifyRedirect } from './pages/MerchantVerifyRedirect';
 import { InstallPrompt } from './components/InstallPrompt';
 
@@ -22,6 +23,7 @@ export const App: React.FC = () => {
             <Route path="/" element={<Home />} />
             <Route path="/scan-qr" element={<QRScanner />} />
             <Route path="/check-url" element={<UrlAnalyzer />} />
+            <Route path="/check-email" element={<EmailAnalyzer />} />
             <Route path="/result" element={<ResultPage />} />
             <Route path="/report" element={<ReportPage />} />
             <Route path="/admin" element={<AdminDashboard />} />
